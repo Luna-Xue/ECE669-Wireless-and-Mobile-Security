@@ -73,7 +73,7 @@ python make_dataset.py                       # -> data/train.jsonl, data/val.jso
 pip install -U -r requirements-local.txt     # torch / transformers / peft (~GB, one-time)
 ```
 Then get the trained LoRA adapter and put it at **`./explainer-lora/`** — either:
-- **Download** `explainer-lora.zip` (~68 MB) from 👉 **[DOWNLOAD LINK — paste your Google Drive URL here]** 👈,
+- **Download** `explainer-lora.zip` (~68 MB) from 👉 **https://drive.google.com/drive/folders/1nXW_ZWwUZ9T-kdjysV3GFMWvJpcJV_ML?usp=sharing** 👈,
   then unzip it at the repo root so that `./explainer-lora/adapter_config.json` and
   `./explainer-lora/adapter_model.safetensors` exist, **or**
 - **Train your own** free on Colab (see [LAB.md](LAB.md) Lab 3 / [`notebooks/train_explainer.ipynb`](notebooks/train_explainer.ipynb)).
