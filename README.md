@@ -6,7 +6,7 @@ Each chapter is a **self-contained, runnable module** — clone the repo, `cd` i
 chapter, and follow that chapter's own `README.md`. Chapters are designed to run on a
 laptop (no GPU, no paid API keys required).
 
-> Instructor: **Xiaochan Xue** · The George Washington University
+> Instructor: **Xiaochan Xue** · University of Hawaii at Manoa
 
 ---
 
