@@ -1,0 +1,7 @@
+# Base deps — enough for the offline data labs (Lab 1–2): generate & inspect
+# labelled logs, build the dataset. No API key, no GPU, no heavy ML libs.
+#   pip install -r requirements.txt
+pydantic>=2
+
+# To run the trained model locally (Lab 4–6):   pip install -r requirements-local.txt
+# For the OPTIONAL Claude API path:              pip install -r requirements-api.txt

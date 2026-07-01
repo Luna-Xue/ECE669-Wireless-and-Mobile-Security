@@ -1,0 +1,6 @@
+# OPTIONAL — only for the Claude API explainer path (demo.py --llm, eval.py without --local).
+# Needs ANTHROPIC_API_KEY (see .env.example). Everything else in this repo is local-only
+# and needs NO key. Skip this file unless you specifically want the big-model comparison.
+#   pip install -r requirements-api.txt
+anthropic
+pydantic>=2

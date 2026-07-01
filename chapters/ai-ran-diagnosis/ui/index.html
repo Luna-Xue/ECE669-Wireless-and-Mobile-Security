@@ -1,0 +1,614 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>ranscope — O-RAN fault explainer</title>
+<style>
+  :root {
+    --ground:   #0C1322;
+    --panel:    #131D30;
+    --raised:   #19263C;
+    --hair:     rgba(124,146,178,0.16);
+    --hair-soft:rgba(124,146,178,0.09);
+    --text:     #DBE5F2;
+    --muted:    #8294AD;
+    --faint:    #5A6B85;
+    --accent:   #F3B24A;
+    --accent-soft: rgba(243,178,74,0.14);
+    --cyan:     #57D2C6;
+    --crit:     #FF6B5E;
+    --err:      #FF9A5B;
+    --warn:     #F3B24A;
+    --info:     #64768F;
+    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Monaco, "Cascadia Code", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background-color: var(--ground);
+    background-image:
+      linear-gradient(var(--hair-soft) 1px, transparent 1px),
+      linear-gradient(90deg, var(--hair-soft) 1px, transparent 1px);
+    background-size: 44px 44px, 44px 44px;
+    background-position: -1px -1px;
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 16px; line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 22px; }
+  .eyebrow {
+    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.2em;
+    text-transform: uppercase; color: var(--muted); margin: 0;
+  }
+  .mono { font-family: var(--mono); }
+
+  /* header */
+  header.bar {
+    border-bottom: 1px solid var(--hair);
+    background: rgba(12,19,34,0.74); backdrop-filter: blur(8px);
+    position: sticky; top: 0; z-index: 30;
+  }
+  .bar-inner { display: flex; align-items: center; gap: 18px; padding: 13px 22px; max-width: 1240px; margin: 0 auto; flex-wrap: wrap; }
+  .wordmark { display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.02em; }
+  .wordmark .dim { color: var(--faint); font-weight: 500; }
+  .blip { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: blip 2.6s ease-out infinite; }
+  @keyframes blip {
+    0% { box-shadow: 0 0 0 0 rgba(243,178,74,0.55); }
+    70% { box-shadow: 0 0 0 9px rgba(243,178,74,0); }
+    100% { box-shadow: 0 0 0 0 rgba(243,178,74,0); }
+  }
+  .bar-meta { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
+  .chip { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--hair); padding: 4px 9px; border-radius: 5px; white-space: nowrap; }
+  .chip b { color: var(--text); font-weight: 600; }
+
+  /* scenario tabs */
+  .tabs { border-bottom: 1px solid var(--hair); position: sticky; top: 53px; z-index: 25; background: rgba(12,19,34,0.74); backdrop-filter: blur(8px); }
+  .tabs-inner { display: flex; gap: 4px; max-width: 1240px; margin: 0 auto; padding: 8px 18px; overflow-x: auto; }
+  .tab {
+    flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 0.78rem; color: var(--muted);
+    background: none; border: 1px solid transparent; border-radius: 7px;
+    padding: 7px 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s;
+  }
+  .tab:hover { color: var(--text); background: rgba(124,146,178,0.06); }
+  .tab .rc { font-size: 0.62rem; letter-spacing: 0.08em; color: var(--faint); border: 1px solid var(--hair); border-radius: 4px; padding: 1px 5px; }
+  .tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+  .tab.active .rc { color: var(--accent); border-color: rgba(243,178,74,0.4); }
+  .tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+
+  /* hero */
+  .hero { padding: 34px 0 22px; }
+  .hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 40px; align-items: center; }
+  .verdict { font-family: var(--mono); font-weight: 700; font-size: clamp(2.6rem, 6.5vw, 4.4rem); line-height: 0.96; letter-spacing: -0.02em; color: var(--accent); margin: 6px 0 14px; text-shadow: 0 0 28px rgba(243,178,74,0.22); }
+  .verdict-sum { font-size: 1.0rem; color: var(--text); max-width: 32em; margin: 0 0 18px; }
+  .conf { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ground); background: var(--cyan); padding: 6px 11px; border-radius: 5px; font-weight: 700; }
+  .conf::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ground); }
+  .conf.medium { background: var(--warn); }
+  .conf.low { background: var(--err); }
+
+  /* topology */
+  .topo { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; padding: 22px 20px 18px; }
+  .chain-row { display: flex; align-items: flex-start; margin-top: 16px; }
+  .node { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; min-width: 0; }
+  .node .glyph { width: 100%; height: 58px; border-radius: 9px; border: 1px solid var(--hair); background: var(--raised); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 0.78rem; font-weight: 600; color: var(--muted); transition: all 0.4s ease; padding: 0 4px; }
+  .node .role { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .node.root .glyph { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 22px rgba(243,178,74,0.25), inset 0 0 0 1px rgba(243,178,74,0.4); }
+  .node.root .role { color: var(--accent); }
+  .node.affected .glyph { color: var(--text); border-color: rgba(255,154,91,0.5); }
+  .node.affected .role { color: var(--err); }
+  .conn { flex: 0 0 38px; align-self: flex-start; margin-top: 29px; height: 2px; position: relative; background: var(--hair); border-radius: 2px; overflow: hidden; }
+  .conn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--accent), rgba(243,178,74,0)); transform: translateX(-100%); }
+  .topo-cap { font-size: 0.84rem; color: var(--muted); margin: 18px 2px 0; border-top: 1px solid var(--hair-soft); padding-top: 14px; }
+  .topo-cap b { color: var(--accent); font-weight: 600; font-family: var(--mono); }
+
+  .play .node .glyph { animation: nodePulse 0.7s ease-out backwards; }
+  .play .node:nth-child(1) .glyph { animation-delay: 0.10s; }
+  .play .node:nth-child(3) .glyph { animation-delay: 0.50s; }
+  .play .node:nth-child(5) .glyph { animation-delay: 0.90s; }
+  .play .node:nth-child(7) .glyph { animation-delay: 1.30s; }
+  .play .node:nth-child(9) .glyph { animation-delay: 1.70s; }
+  @keyframes nodePulse {
+    0% { transform: scale(1); }
+    35% { transform: scale(1.06); box-shadow: 0 0 26px 4px rgba(243,178,74,0.5); }
+    100% { transform: scale(1); }
+  }
+  .play .conn::after { animation: sweep 0.5s ease-out backwards; }
+  .play .conn:nth-of-type(2)::after { animation-delay: 0.40s; }
+  .play .conn:nth-of-type(4)::after { animation-delay: 0.80s; }
+  .play .conn:nth-of-type(6)::after { animation-delay: 1.20s; }
+  .play .conn:nth-of-type(8)::after { animation-delay: 1.60s; }
+  @keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+
+  /* working area */
+  .work { display: grid; grid-template-columns: 1.12fr 1fr; gap: 22px; padding: 8px 0 60px; align-items: start; }
+  .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; overflow: hidden; }
+  .card-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 16px 18px 13px; border-bottom: 1px solid var(--hair); }
+  .card-head h2 { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; margin: 0; color: var(--text); font-weight: 600; }
+  .card-head .sub { font-family: var(--mono); font-size: 0.7rem; color: var(--faint); margin-left: auto; }
+
+  .ribbon { position: relative; height: 34px; padding: 0 18px; border-bottom: 1px solid var(--hair-soft); background: var(--ground); }
+  .ribbon-track { position: relative; height: 100%; }
+  .tick { position: absolute; bottom: 8px; width: 2px; border-radius: 2px; background: var(--info); cursor: default; transition: opacity 0.2s; }
+  .ribbon-axis { position: absolute; bottom: 0; left: 18px; right: 18px; font-family: var(--mono); font-size: 0.58rem; color: var(--faint); display: flex; justify-content: space-between; }
+
+  .hint { padding: 10px 18px; font-size: 0.8rem; color: var(--muted); border-bottom: 1px solid var(--hair-soft); display: flex; align-items: center; gap: 8px; }
+  .hint .clear { margin-left: auto; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; color: var(--muted); background: none; border: 1px solid var(--hair); padding: 3px 9px; border-radius: 5px; cursor: pointer; }
+  .hint .clear:hover { color: var(--text); border-color: var(--muted); }
+
+  .logs { padding: 6px 0; max-height: 540px; overflow-y: auto; }
+  .logs-scroll { overflow-x: auto; }
+  .logline { display: grid; grid-template-columns: 46px 92px 70px 84px 1fr; gap: 10px; align-items: baseline; font-family: var(--mono); font-size: 0.78rem; padding: 5px 18px; min-width: 660px; border-left: 2px solid transparent; transition: background 0.18s, opacity 0.18s, border-color 0.18s; }
+  .logline .lid { color: var(--faint); }
+  .logline .lts { color: var(--muted); }
+  .logline .lcomp { color: var(--text); }
+  .logline .lmsg { color: var(--muted); white-space: nowrap; }
+  .sev { font-weight: 700; }
+  .sev.CRITICAL { color: var(--crit); } .sev.ERROR { color: var(--err); } .sev.WARN { color: var(--warn); } .sev.INFO { color: var(--info); }
+  .logline.is-evidence { cursor: pointer; }
+  .logline.is-evidence .lid { color: var(--cyan); }
+  .logs.has-selection .logline:not(.hot) { opacity: 0.30; }
+  .logs.default-dim .logline.noise { opacity: 0.34; }
+  .logline.hot { background: var(--accent-soft); border-left-color: var(--accent); }
+  .logline.hot .lmsg { color: var(--text); }
+  .logline.hot .lid { color: var(--accent); }
+
+  .chain { padding: 8px 0 6px; }
+  .step { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 12px 18px; cursor: pointer; position: relative; border: none; border-left: 2px solid transparent; background: none; color: inherit; font: inherit; text-align: left; width: 100%; transition: background 0.18s, border-color 0.18s; }
+  .step:not(:last-child)::before { content: ""; position: absolute; left: 37px; top: 38px; bottom: -6px; width: 2px; background: var(--hair); border-radius: 2px; }
+  .step .num { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; color: var(--faint); width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--hair); display: flex; align-items: center; justify-content: center; background: var(--ground); z-index: 1; transition: all 0.2s; }
+  .step .scomp { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cyan); margin-bottom: 2px; display: block; }
+  .step .sevent { font-size: 0.92rem; color: var(--text); line-height: 1.4; }
+  .step .sids { font-family: var(--mono); font-size: 0.68rem; color: var(--faint); margin-top: 4px; display: block; }
+  .step:hover { background: rgba(124,146,178,0.05); }
+  .step.selected { background: var(--accent-soft); border-left-color: var(--accent); }
+  .step.selected .num { color: var(--accent); border-color: var(--accent); }
+  .step.selected .sids { color: var(--accent); }
+  .step:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
+
+  .panel-block { padding: 18px; }
+  .panel-block + .panel-block { border-top: 1px solid var(--hair); }
+  .narr { font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
+  .narr strong { color: var(--text); }
+  .narr ol { margin: 8px 0; padding-left: 1.3em; }
+  .narr li { margin: 3px 0; }
+  .narr .cite { font-family: var(--mono); font-size: 0.82em; color: var(--cyan); }
+  .actions { list-style: none; margin: 0; padding: 0; }
+  .actions li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: baseline; font-size: 0.92rem; color: var(--text); padding: 7px 0; }
+  .actions li + li { border-top: 1px solid var(--hair-soft); }
+  .actions .mk { font-family: var(--mono); color: var(--cyan); font-size: 0.8rem; }
+  .note { font-family: var(--mono); font-size: 0.72rem; color: var(--faint); margin: 10px 2px 0; }
+
+  footer { border-top: 1px solid var(--hair); padding: 22px 0 40px; font-size: 0.8rem; color: var(--faint); }
+  footer .mono { color: var(--muted); }
+
+  @media (max-width: 920px) {
+    .hero-grid { grid-template-columns: 1fr; gap: 26px; }
+    .work { grid-template-columns: 1fr; }
+    .conn { flex-basis: 22px; }
+    .tabs { top: 95px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .play .node .glyph, .play .conn::after, .blip { animation: none; }
+    .conn::after { transform: translateX(100%); }
+  }
+  /* live console */
+  .console { border-bottom: 1px solid var(--hair); position: sticky; top: 53px; z-index: 25; background: rgba(12,19,34,0.74); backdrop-filter: blur(8px); }
+  .console-inner { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; max-width: 1240px; margin: 0 auto; padding: 12px 18px; }
+  .field { display: flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
+  .field.check { flex-direction: row; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0.04em; font-size: 0.75rem; color: var(--muted); padding-bottom: 7px; }
+  .field select, .field input[type=number] { font-family: var(--mono); font-size: 0.82rem; color: var(--text); background: var(--raised); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 8px; }
+  .field input[type=number] { width: 72px; }
+  .field select { min-width: 170px; }
+  .btn { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.04em; color: var(--text); background: var(--raised); border: 1px solid var(--hair); border-radius: 7px; padding: 8px 14px; cursor: pointer; transition: all 0.15s; }
+  .btn:hover:not(:disabled) { border-color: var(--muted); }
+  .btn:disabled { opacity: 0.5; cursor: default; }
+  .btn.primary { color: var(--ground); background: var(--accent); border-color: var(--accent); font-weight: 700; }
+  .btn.primary:hover:not(:disabled) { box-shadow: 0 0 18px rgba(243,178,74,0.35); }
+  .custom { flex: 1 1 100%; margin-top: 2px; }
+  .custom summary { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); cursor: pointer; }
+  .custom textarea { width: 100%; min-height: 96px; margin-top: 8px; font-family: var(--mono); font-size: 0.76rem; color: var(--text); background: var(--ground); border: 1px solid var(--hair); border-radius: 7px; padding: 10px; resize: vertical; }
+  .placeholder { color: var(--faint); font-size: 0.9rem; padding: 8px 0; display: block; }
+  .placeholder b { color: var(--accent); }
+  .match { display: inline-flex; align-items: center; margin-left: 10px; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.04em; padding: 5px 10px; border-radius: 5px; font-weight: 700; }
+  .match.ok { color: var(--ground); background: var(--cyan); }
+  .match.bad { color: var(--ground); background: var(--crit); }
+  @media (max-width: 920px) { .console { top: 95px; } }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+  <header class="bar">
+    <div class="bar-inner">
+      <div class="wordmark"><span class="blip"></span><b>ranscope</b><span class="dim">/ o-ran fault explainer</span></div>
+      <div class="bar-meta">
+        <span class="chip" id="mode-chip">mode <b>—</b></span>
+        <span class="chip">model <b>Qwen2.5-1.5B + LoRA</b></span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="tabs"><div class="tabs-inner" id="tabs"></div></nav>
+  <div class="console" id="console" hidden>
+    <div class="console-inner">
+      <label class="field">scenario<select id="c-scenario"></select></label>
+      <label class="field">seed<input id="c-seed" type="number" value="50" min="0" /></label>
+      <label class="field">noise<input id="c-noise" type="number" value="6" min="0" /></label>
+      <label class="field check"><input id="c-inject" type="checkbox" /> inject attack line</label>
+      <button class="btn" id="c-generate" type="button">Generate logs</button>
+      <button class="btn primary" id="c-diagnose" type="button">Diagnose ▶</button>
+      <button class="btn" id="c-save" type="button" title="download the shown logs as a .log file">Save .log</button>
+      <label class="btn" for="c-upload" title="load a .log/.json file and diagnose it">Upload .log ▲</label>
+      <input id="c-upload" type="file" accept=".log,.json,.txt" hidden />
+      <details class="custom">
+        <summary>or paste your own logs</summary>
+        <textarea id="c-custom" placeholder="[L001] 10:42:00.058 CRITICAL O-RU [FHI72] PTP: lost lock to grandmaster&#10;[L002] 10:42:00.112 ERROR    O-DU [PHY] eCPRI U-plane out of sync"></textarea>
+        <button class="btn" id="c-load-custom" type="button">Load these logs</button>
+      </details>
+    </div>
+  </div>
+
+  <main class="wrap">
+    <section class="hero">
+      <div class="hero-grid">
+        <div>
+          <p class="eyebrow">Root cause</p>
+          <h1 class="verdict" id="verdict">—</h1>
+          <p class="verdict-sum" id="verdict-sum"></p>
+          <span class="conf" id="conf">High confidence</span><span class="match" id="match" hidden></span>
+        </div>
+        <div class="topo">
+          <p class="eyebrow">Fault propagation</p>
+          <div class="chain-row" id="topo"></div>
+          <p class="topo-cap" id="topo-cap"></p>
+        </div>
+      </div>
+    </section>
+
+    <section class="work">
+      <div class="card">
+        <div class="card-head">
+          <h2>Log window</h2>
+          <span class="sub" id="log-meta"></span>
+        </div>
+        <div class="ribbon"><div class="ribbon-track" id="ribbon"></div><div class="ribbon-axis" id="ribbon-axis"></div></div>
+        <div class="hint">
+          <span>Select a step in the chain to highlight the lines that justify it.</span>
+          <button class="clear" id="clear-btn" type="button">show all evidence</button>
+        </div>
+        <div class="logs-scroll"><div class="logs default-dim" id="logs"></div></div>
+      </div>
+
+      <div class="card">
+        <div class="card-head"><h2>Causal chain</h2><span class="sub" id="chain-sub"></span></div>
+        <div class="chain" id="chain"></div>
+        <div class="panel-block">
+          <p class="eyebrow" style="margin-bottom:10px;">What to check</p>
+          <ul class="actions" id="actions"></ul>
+        </div>
+        <div class="panel-block">
+          <p class="eyebrow" style="margin-bottom:10px;">Explanation</p>
+          <div class="narr" id="narr"></div>
+          <p class="note" id="note" hidden></p>
+        </div>
+      </div>
+    </section>
+
+    <footer>
+      <span class="mono">ranscope</span> — built on real samples from the project's
+      synthetic generator (<span class="mono">generate() → ground truth</span>, 5 scenarios).
+      Live mode (run <span class="mono">python ui/server.py</span>) sends each window to your trained model via <span class="mono">explainer.local.diagnose()</span>.
+    </footer>
+  </main>
+
+<script>
+const SAMPLES = {"prb_exhaustion":{"note":"","logs":[{"id":"L001","ts":"10:41:59.037","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x0d07 HARQ ACK/NACK stats nominal"},{"id":"L002","ts":"10:41:59.125","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:42:00.017","component":"O-DU","severity":"WARN","message":"[NR_MAC] cell 5 PRB utilization 92% and rising"},{"id":"L004","ts":"10:42:00.112","component":"O-DU","severity":"WARN","message":"[NR_MAC] cell 5 PRB utilization 100% (saturated) for 1500ms"},{"id":"L005","ts":"10:42:00.708","component":"O-DU","severity":"ERROR","message":"[NR_MAC] admission control: no PRB available, rejecting DRB setup"},{"id":"L006","ts":"10:42:00.998","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L007","ts":"10:42:01.132","component":"O-CU-CP","severity":"WARN","message":"[RRC] UE RRC setup failure, cause=radio-resources-unavailable"},{"id":"L008","ts":"10:42:01.215","component":"UPF","severity":"WARN","message":"[upf] WARNING: GTP-U downlink buffer high, packets being discarded"},{"id":"L009","ts":"10:42:01.488","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xc795 HARQ ACK/NACK stats nominal"},{"id":"L010","ts":"10:42:01.668","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L011","ts":"10:42:01.955","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"}],"diagnosis":{"root_cause_component":"O-DU","root_cause_summary":"A traffic surge saturated the PRBs of cell 5; the O-DU scheduler ran out of radio resources, so admission control and downstream sessions failed.","causal_chain":[{"component":"O-DU","event":"Traffic surge saturates PRBs on cell 5","evidence_log_ids":["L003","L004"]},{"component":"O-DU","event":"Admission control rejects new bearers (no PRB)","evidence_log_ids":["L005"]},{"component":"O-CU-CP","event":"RRC setup failures rise on cell 5","evidence_log_ids":["L007"]},{"component":"UPF","event":"Downlink buffering / discards build up at the UPF","evidence_log_ids":["L008"]}],"narrative":"**Root cause — O-DU.** A traffic surge saturated the PRBs of cell 5; the O-DU scheduler ran out of radio resources, so admission control and downstream sessions failed.\n\nHow it unfolded:\n1. [O-DU] Traffic surge saturates PRBs on cell 5 (evidence: L003, L004)\n2. [O-DU] Admission control rejects new bearers (no PRB) (evidence: L005)\n3. [O-CU-CP] RRC setup failures rise on cell 5 (evidence: L007)\n4. [UPF] Downlink buffering / discards build up at the UPF (evidence: L008)\n\nWhat to check:\n- Check cell 5 offered load and PRB utilization (NR_MAC counters).\n- Verify admission-control and scheduler limits; consider raising capacity.\n- Offload cell 5 to a neighbor via an A1 policy or add a carrier.","recommended_actions":["Check cell 5 offered load and PRB utilization (NR_MAC counters).","Verify admission-control and scheduler limits; consider raising capacity.","Offload cell 5 to a neighbor via an A1 policy or add a carrier."],"confidence":"high"}},"ngap_amf_down":{"note":"","logs":[{"id":"L001","ts":"10:41:59.075","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x0d07 HARQ ACK/NACK stats nominal"},{"id":"L002","ts":"10:41:59.250","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:41:59.768","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L004","ts":"10:42:00.017","component":"AMF","severity":"ERROR","message":"[amf] ERROR: ngap socket error on 127.0.0.5:38412, terminating association"},{"id":"L005","ts":"10:42:00.298","component":"O-CU-CP","severity":"CRITICAL","message":"[NGAP] lost connection to AMF, no active NG association"},{"id":"L006","ts":"10:42:00.322","component":"O-CU-CP","severity":"CRITICAL","message":"[SCTP] association to peer 127.0.0.5 (AMF) is DOWN"},{"id":"L007","ts":"10:42:01.213","component":"O-CU-CP","severity":"WARN","message":"[RRC] rejecting RRCSetup: AMF unavailable, cannot forward NAS"},{"id":"L008","ts":"10:42:01.807","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE RA success but RRC setup not completing (no core)"},{"id":"L009","ts":"10:42:02.545","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L010","ts":"10:42:04.910","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"},{"id":"L011","ts":"10:42:04.946","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L012","ts":"10:42:05.282","component":"O-CU-CP","severity":"ERROR","message":"[NGAP] NG Setup Request timeout, no AMF available"},{"id":"L013","ts":"10:42:05.305","component":"O-CU-CP","severity":"ERROR","message":"[NGAP] retrying NG setup in 5000ms"}],"diagnosis":{"root_cause_component":"AMF","root_cause_summary":"The AMF became unreachable; the gNB lost its NGAP/N2 (SCTP) association, so NG setup retries failed and new UE registrations were rejected.","causal_chain":[{"component":"AMF","event":"AMF becomes unreachable (process down / N2 reset)","evidence_log_ids":["L004"]},{"component":"O-CU-CP","event":"gNB loses SCTP/NGAP association to the AMF","evidence_log_ids":["L005","L006"]},{"component":"O-CU-CP","event":"New UE registrations rejected (core down)","evidence_log_ids":["L007"]},{"component":"O-DU","event":"DU sees UE attach attempts stall after RA","evidence_log_ids":["L008"]},{"component":"O-CU-CP","event":"NG setup retries fail; no AMF available","evidence_log_ids":["L012","L013"]}],"narrative":"**Root cause — AMF.** The AMF became unreachable; the gNB lost its NGAP/N2 (SCTP) association, so NG setup retries failed and new UE registrations were rejected.\n\nHow it unfolded:\n1. [AMF] AMF becomes unreachable (process down / N2 reset) (evidence: L004)\n2. [O-CU-CP] gNB loses SCTP/NGAP association to the AMF (evidence: L005, L006)\n3. [O-CU-CP] New UE registrations rejected (core down) (evidence: L007)\n4. [O-DU] DU sees UE attach attempts stall after RA (evidence: L008)\n5. [O-CU-CP] NG setup retries fail; no AMF available (evidence: L012, L013)\n\nWhat to check:\n- Check the AMF process health and the N2 SCTP association.\n- Verify the gNB's AMF IP/port config and network reachability.\n- Restore the AMF, then confirm NG Setup succeeds.","recommended_actions":["Check the AMF process health and the N2 SCTP association.","Verify the gNB's AMF IP/port config and network reachability.","Restore the AMF, then confirm NG Setup succeeds."],"confidence":"high"}},"f1_setup_failure":{"note":"","logs":[{"id":"L001","ts":"10:41:59.091","component":"O-DU","severity":"INFO","message":"[NR_RRC] periodic CSI report received from UE 0xa286"},{"id":"L002","ts":"10:41:59.116","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:42:00.017","component":"O-DU","severity":"ERROR","message":"[F1AP] sending F1 Setup Request (1 served cell)"},{"id":"L004","ts":"10:42:00.112","component":"O-DU","severity":"ERROR","message":"[F1AP] served cell 1 config: PRACH/SSB parameters out of range"},{"id":"L005","ts":"10:42:00.308","component":"O-CU-CP","severity":"ERROR","message":"[F1AP] F1 Setup Failure sent to DU, cause=cell-config-not-supported"},{"id":"L006","ts":"10:42:00.582","component":"O-DU","severity":"WARN","message":"[F1AP] F1 Setup Failure received, cell 1 not served"},{"id":"L007","ts":"10:42:00.605","component":"O-DU","severity":"WARN","message":"[NR_MAC] cell 1 remains DOWN (no F1 association)"},{"id":"L008","ts":"10:42:00.813","component":"O-CU-CP","severity":"INFO","message":"[RRC] no served cells available for UE access"},{"id":"L009","ts":"10:42:01.421","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L010","ts":"10:42:01.811","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x04b6 HARQ ACK/NACK stats nominal"},{"id":"L011","ts":"10:42:01.850","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L012","ts":"10:42:02.230","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"}],"diagnosis":{"root_cause_component":"O-DU","root_cause_summary":"The O-DU offered an invalid cell configuration over F1; the O-CU rejected the F1 setup, so the cell never came up and no UE could attach.","causal_chain":[{"component":"O-DU","event":"O-DU sends F1 Setup Request with invalid cell config","evidence_log_ids":["L003","L004"]},{"component":"O-CU-CP","event":"O-CU rejects the F1 setup","evidence_log_ids":["L005"]},{"component":"O-DU","event":"O-DU cannot bring up the cell without F1","evidence_log_ids":["L006","L007"]},{"component":"O-CU-CP","event":"No served cell -> no UE access","evidence_log_ids":["L008"]}],"narrative":"**Root cause — O-DU.** The O-DU offered an invalid cell configuration over F1; the O-CU rejected the F1 setup, so the cell never came up and no UE could attach.\n\nHow it unfolded:\n1. [O-DU] O-DU sends F1 Setup Request with invalid cell config (evidence: L003, L004)\n2. [O-CU-CP] O-CU rejects the F1 setup (evidence: L005)\n3. [O-DU] O-DU cannot bring up the cell without F1 (evidence: L006, L007)\n4. [O-CU-CP] No served cell -> no UE access (evidence: L008)\n\nWhat to check:\n- Inspect the O-DU served-cell config (PRACH/SSB params) in the F1 Setup Request.\n- Compare the DU cell config against what the CU supports.\n- Fix the cell config and re-establish F1.","recommended_actions":["Inspect the O-DU served-cell config (PRACH/SSB params) in the F1 Setup Request.","Compare the DU cell config against what the CU supports.","Fix the cell config and re-establish F1."],"confidence":"high"}},"sync_loss":{"note":"Requires a real O-RU + 7.2 fronthaul + PTP to reproduce; synthetic-only on an RFsim/USRP testbed.","logs":[{"id":"L001","ts":"10:41:59.182","component":"O-DU","severity":"INFO","message":"[NR_RRC] periodic CSI report received from UE 0xa286"},{"id":"L002","ts":"10:41:59.768","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L003","ts":"10:42:00.017","component":"O-RU","severity":"CRITICAL","message":"[FHI72] PTP: lost lock to grandmaster 10.0.0.1 (Announce timeout)"},{"id":"L004","ts":"10:42:00.112","component":"O-RU","severity":"CRITICAL","message":"[FHI72] clock entering HOLDOVER, free-running on local oscillator"},{"id":"L005","ts":"10:42:00.608","component":"O-DU","severity":"ERROR","message":"[FHI72] DL T1a window miss on eAxC 0..7"},{"id":"L006","ts":"10:42:00.672","component":"O-DU","severity":"ERROR","message":"[PHY] eCPRI U-plane out of sync with O-RU (drift > 1.1us)"},{"id":"L007","ts":"10:42:00.774","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x04b6 HARQ ACK/NACK stats nominal"},{"id":"L008","ts":"10:42:00.816","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L009","ts":"10:42:00.874","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"},{"id":"L010","ts":"10:42:01.663","component":"O-CU-CP","severity":"WARN","message":"[RRC] UE context release surge on cell 12, cause=radioLinkFailure"},{"id":"L011","ts":"10:42:01.915","component":"O-DU","severity":"ERROR","message":"[NR_MAC] cell 12 DEACTIVATED: timing fault, TA budget exceeded"},{"id":"L012","ts":"10:42:02.157","component":"AMF","severity":"INFO","message":"[amf] INFO: UE context release (radio) for multiple SUPIs"},{"id":"L013","ts":"10:42:02.545","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"}],"diagnosis":{"root_cause_component":"O-RU","root_cause_summary":"The O-RU lost its PTP lock to the grandmaster clock and went into holdover; fronthaul timing drifted, the O-DU deactivated the cell, and UEs dropped.","causal_chain":[{"component":"O-RU","event":"PTP grandmaster clock lost at the O-RU","evidence_log_ids":["L003","L004"]},{"component":"O-DU","event":"Fronthaul timing windows start missing","evidence_log_ids":["L005","L006"]},{"component":"O-CU-CP","event":"UEs drop with radio link failure","evidence_log_ids":["L010"]},{"component":"O-DU","event":"Cell deactivated on persistent timing fault","evidence_log_ids":["L011"]},{"component":"AMF","event":"Core observes the UE context releases","evidence_log_ids":["L012"]}],"narrative":"**Root cause — O-RU.** The O-RU lost its PTP lock to the grandmaster clock and went into holdover; fronthaul timing drifted, the O-DU deactivated the cell, and UEs dropped.\n\nHow it unfolded:\n1. [O-RU] PTP grandmaster clock lost at the O-RU (evidence: L003, L004)\n2. [O-DU] Fronthaul timing windows start missing (evidence: L005, L006)\n3. [O-CU-CP] UEs drop with radio link failure (evidence: L010)\n4. [O-DU] Cell deactivated on persistent timing fault (evidence: L011)\n5. [AMF] Core observes the UE context releases (evidence: L012)\n\nWhat to check:\n- Check grandmaster reachability and the O-RU PTP/SyncE lock state.\n- Verify fronthaul S-plane timing and holdover status.\n- Restore GM lock, then re-activate the affected cell.","recommended_actions":["Check grandmaster reachability and the O-RU PTP/SyncE lock state.","Verify fronthaul S-plane timing and holdover status.","Restore GM lock, then re-activate the affected cell."],"confidence":"high"}},"auth_failure":{"note":"","logs":[{"id":"L001","ts":"10:41:59.037","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x0d07 HARQ ACK/NACK stats nominal"},{"id":"L002","ts":"10:41:59.125","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:42:00.017","component":"UDM","severity":"ERROR","message":"[udm] ERROR: authentication vector mismatch for imsi-999700000001234"},{"id":"L004","ts":"10:42:00.272","component":"AUSF","severity":"WARN","message":"[ausf] WARNING: 5G-AKA authentication failure (MAC failure)"},{"id":"L005","ts":"10:42:00.458","component":"AMF","severity":"WARN","message":"[amf] WARNING: Registration reject (cause=Illegal UE, auth failure)"},{"id":"L006","ts":"10:42:00.882","component":"O-CU-CP","severity":"INFO","message":"[RRC] releasing UE after NAS authentication failure"},{"id":"L007","ts":"10:42:00.934","component":"O-DU","severity":"INFO","message":"[NR_RRC] periodic CSI report received from UE 0xfda9"},{"id":"L008","ts":"10:42:00.998","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L009","ts":"10:42:01.488","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xc795 HARQ ACK/NACK stats nominal"},{"id":"L010","ts":"10:42:01.955","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"}],"diagnosis":{"root_cause_component":"UDM","root_cause_summary":"A subscriber key/OPc mismatch in the UDM caused 5G-AKA to fail at the AUSF, so the AMF rejected registration and the gNB released the UE.","causal_chain":[{"component":"UDM","event":"Subscriber key/OPc mismatch in the UDM (provisioning error)","evidence_log_ids":["L003"]},{"component":"AUSF","event":"AUSF confirms 5G-AKA authentication failure","evidence_log_ids":["L004"]},{"component":"AMF","event":"AMF rejects the registration","evidence_log_ids":["L005"]},{"component":"O-CU-CP","event":"gNB releases the UE after NAS auth reject","evidence_log_ids":["L006"]}],"narrative":"**Root cause — UDM.** A subscriber key/OPc mismatch in the UDM caused 5G-AKA to fail at the AUSF, so the AMF rejected registration and the gNB released the UE.\n\nHow it unfolded:\n1. [UDM] Subscriber key/OPc mismatch in the UDM (provisioning error) (evidence: L003)\n2. [AUSF] AUSF confirms 5G-AKA authentication failure (evidence: L004)\n3. [AMF] AMF rejects the registration (evidence: L005)\n4. [O-CU-CP] gNB releases the UE after NAS auth reject (evidence: L006)\n\nWhat to check:\n- Check the subscriber's K/OPc provisioning in the UDM/UDR.\n- Verify AUSF<->UDM connectivity and the configured auth method.\n- Re-provision the subscriber and retry registration.","recommended_actions":["Check the subscriber's K/OPc provisioning in the UDM/UDR.","Verify AUSF<->UDM connectivity and the configured auth method.","Re-provision the subscriber and retry registration."],"confidence":"high"}}};
+
+const SCEN_META = {
+  prb_exhaustion:  {name: "PRB exhaustion"},
+  ngap_amf_down:   {name: "AMF down (NGAP)"},
+  f1_setup_failure:{name: "F1 setup failure"},
+  sync_loss:       {name: "PTP sync loss"},
+  auth_failure:    {name: "Auth failure"},
+};
+const ROLES = {
+  "O-RU":"radio unit", "O-DU":"distributed", "O-CU-CP":"central c-plane",
+  "O-CU-UP":"central u-plane", "AMF":"core access", "SMF":"session mgmt",
+  "UPF":"user plane", "UDM":"subscriber data", "AUSF":"auth server", "gNB":"gnb",
+};
+const SEV_VAR = {CRITICAL:"crit", ERROR:"err", WARN:"warn", INFO:"info"};
+
+const $ = (s, r=document) => r.querySelector(s);
+const el = (t, c) => { const n=document.createElement(t); if(c) n.className=c; return n; };
+const tsMs = t => { const p=t.split(":"); const s=(p[2]||"0").split("."); return ((+p[0]*60+ +p[1])*60+ +s[0])*1000 + (+(s[1]||0)); };
+
+let curLogs = [], curDiag = null, curGT = null, curName = "", curSeed = null;
+let lineByID = {}, citedBy = {}, allEvidence = new Set(), selected = null;
+
+/* ---------- log panel (rendered before any diagnosis) ---------- */
+function renderLogs(logs) {
+  curLogs = logs; lineByID = {};
+  const comps = new Set(logs.map(l => l.component));
+  $("#log-meta").textContent = `${logs.length} lines · ${comps.size} components`;
+  const t0 = tsMs(logs[0].ts), t1 = tsMs(logs[logs.length-1].ts), span = (t1 - t0) || 1;
+  $("#ribbon-axis").innerHTML = `<span>${logs[0].ts}</span><span>${logs[logs.length-1].ts}</span>`;
+  const ribbon = $("#ribbon"); ribbon.innerHTML = "";
+  const sevH = {CRITICAL:22, ERROR:17, WARN:13, INFO:8};
+  const logsEl = $("#logs"); logsEl.innerHTML = ""; logsEl.className = "logs";
+  logs.forEach(l => {
+    const row = el("div", "logline"); row.dataset.id = l.id;
+    row.innerHTML =
+      `<span class="lid">[${l.id}]</span>` +
+      `<span class="lts">${l.ts}</span>` +
+      `<span class="sev ${l.severity}">${l.severity}</span>` +
+      `<span class="lcomp">${l.component}</span>` +
+      `<span class="lmsg">${l.message}</span>`;
+    logsEl.appendChild(row); lineByID[l.id] = row;
+    const tick = el("div", "tick");
+    tick.style.left = `${((tsMs(l.ts) - t0) / span) * 100}%`;
+    tick.style.height = `${sevH[l.severity] || 8}px`;
+    tick.style.background = `var(--${SEV_VAR[l.severity] || "info"})`;
+    tick.title = `[${l.id}] ${l.severity}`;
+    tick.addEventListener("mouseenter", () => { if (lineByID[l.id].classList.contains("is-evidence")) lineByID[l.id].classList.add("hot"); });
+    tick.addEventListener("mouseleave", () => { if (!logsEl.classList.contains("has-selection")) lineByID[l.id].classList.remove("hot"); });
+    ribbon.appendChild(tick);
+  });
+}
+
+/* ---------- diagnosis panel ---------- */
+function clearDiagnosis(msg) {
+  curDiag = null; selected = null;
+  $("#verdict").textContent = "—";
+  $("#verdict-sum").textContent = msg || "Run your model on these logs.";
+  $("#conf").hidden = true;
+  $("#match").hidden = true;
+  $("#topo").innerHTML = "";
+  $("#topo-cap").innerHTML = "";
+  $("#chain-sub").textContent = "";
+  $("#chain").innerHTML = `<div class="placeholder">No diagnosis yet — click <b>Diagnose ▶</b>.</div>`;
+  $("#actions").innerHTML = "";
+  $("#narr").innerHTML = `<span class="placeholder">The model's explanation will appear here.</span>`;
+  $("#note").hidden = true;
+  const logsEl = $("#logs");
+  if (logsEl) { logsEl.className = "logs"; logsEl.querySelectorAll(".logline").forEach(r => { r.classList.remove("is-evidence","noise","hot"); r.onclick = null; }); }
+}
+
+function renderDiagnosis(d) {
+  curDiag = d; selected = null; citedBy = {}; allEvidence = new Set();
+  d.causal_chain.forEach((step, i) => step.evidence_log_ids.forEach(id => { (citedBy[id] ||= []).push(i); }));
+  Object.keys(citedBy).forEach(id => allEvidence.add(id));
+
+  $("#verdict").textContent = d.root_cause_component;
+  $("#verdict-sum").textContent = d.root_cause_summary;
+  const conf = $("#conf"); conf.hidden = false; conf.className = "conf " + d.confidence;
+  conf.textContent = d.confidence + " confidence";
+
+  // topology = unique components in causal order
+  const seen = new Set(), comps = [];
+  d.causal_chain.forEach(s => { if (!seen.has(s.component)) { seen.add(s.component); comps.push(s.component); } });
+  const topo = $("#topo"); topo.innerHTML = "";
+  comps.forEach((comp, i) => {
+    if (i > 0) topo.appendChild(el("div", "conn"));
+    const node = el("div", "node " + (comp === d.root_cause_component ? "root" : "affected"));
+    const g = el("div", "glyph"); g.textContent = comp;
+    const r = el("div", "role"); r.textContent = ROLES[comp] || "";
+    node.append(g, r); topo.appendChild(node);
+  });
+  $("#topo-cap").innerHTML = `Fault originated at the <b>${d.root_cause_component}</b> and propagated downstream — every louder error below it is a symptom, not the cause.`;
+
+  // tag evidence onto already-rendered log rows
+  curLogs.forEach(l => {
+    const row = lineByID[l.id]; if (!row) return;
+    row.classList.remove("is-evidence","noise","hot"); row.onclick = null;
+    if (allEvidence.has(l.id)) { row.classList.add("is-evidence"); row.onclick = () => selectStep(citedBy[l.id][0]); }
+    else { row.classList.add("noise"); }
+  });
+
+  // causal chain
+  $("#chain-sub").textContent = `root → symptom · ${d.causal_chain.length} steps`;
+  const chain = $("#chain"); chain.innerHTML = "";
+  d.causal_chain.forEach((step, i) => {
+    const s = el("button", "step"); s.type = "button"; s.dataset.step = i;
+    s.innerHTML =
+      `<span class="num">${String(i+1).padStart(2,"0")}</span>` +
+      `<span><span class="scomp">${step.component}</span>` +
+      `<span class="sevent">${step.event}</span>` +
+      `<span class="sids">${step.evidence_log_ids.join(" · ")}</span></span>`;
+    s.addEventListener("click", () => selectStep(i));
+    chain.appendChild(s);
+  });
+
+  // actions + narrative
+  const actions = $("#actions"); actions.innerHTML = "";
+  (d.recommended_actions || []).forEach(a => { const li = el("li"); li.innerHTML = `<span class="mk">→</span><span>${a}</span>`; actions.appendChild(li); });
+  $("#narr").innerHTML =
+    `<strong>Root cause — ${d.root_cause_component}.</strong> ${d.root_cause_summary}` +
+    `<ol>` + d.causal_chain.map(st => `<li>[${st.component}] ${st.event} <span class="cite">${st.evidence_log_ids.join(", ")}</span></li>`).join("") + `</ol>`;
+
+  const topoWrap = topo.parentElement;
+  topoWrap.classList.remove("play"); void topoWrap.offsetWidth; topoWrap.classList.add("play");
+  showAll();
+}
+
+function clearHot() { $("#logs").querySelectorAll(".logline.hot").forEach(r => r.classList.remove("hot")); }
+function selectStep(i) {
+  if (!curDiag) return;
+  if (selected === i) return showAll();
+  selected = i;
+  const logsEl = $("#logs");
+  logsEl.classList.add("has-selection"); logsEl.classList.remove("default-dim");
+  clearHot();
+  $("#chain").querySelectorAll(".step").forEach(s => s.classList.toggle("selected", +s.dataset.step === i));
+  const ids = curDiag.causal_chain[i].evidence_log_ids;
+  ids.forEach(id => lineByID[id] && lineByID[id].classList.add("hot"));
+  if (lineByID[ids[0]]) lineByID[ids[0]].scrollIntoView({ block: "nearest", behavior: "smooth" });
+}
+function showAll() {
+  if (!curDiag) return;
+  selected = null;
+  const logsEl = $("#logs");
+  logsEl.classList.remove("has-selection"); logsEl.classList.add("default-dim");
+  $("#chain").querySelectorAll(".step").forEach(s => s.classList.remove("selected"));
+  clearHot();
+  allEvidence.forEach(id => lineByID[id] && lineByID[id].classList.add("hot"));
+}
+$("#clear-btn").addEventListener("click", showAll);
+
+function setMatch(predComp) {
+  const m = $("#match");
+  if (!curGT) { m.hidden = true; return; }
+  const ok = String(predComp).trim().toLowerCase() === curGT.root_cause_component.trim().toLowerCase();
+  m.hidden = false; m.className = "match " + (ok ? "ok" : "bad");
+  m.textContent = ok ? `✓ correct (truth: ${curGT.root_cause_component})`
+                     : `✗ predicted ${predComp}, truth ${curGT.root_cause_component}`;
+}
+
+/* ---------- DEMO mode (embedded samples; file:// or hosted preview) ---------- */
+function initDemo() {
+  $("#mode-chip").innerHTML = `mode <b>demo · sample data</b>`;
+  $("#tabs").hidden = false; $("#console").hidden = true;
+  const tabs = $("#tabs");
+  Object.keys(SAMPLES).forEach(key => {
+    const t = el("button", "tab"); t.type = "button"; t.dataset.key = key;
+    t.innerHTML = `${SCEN_META[key]?.name || key}<span class="rc">${SAMPLES[key].diagnosis.root_cause_component}</span>`;
+    t.addEventListener("click", () => showSample(key));
+    tabs.appendChild(t);
+  });
+  showSample(Object.keys(SAMPLES)[0]);
+}
+function showSample(key) {
+  $("#tabs").querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.key === key));
+  curGT = null;
+  renderLogs(SAMPLES[key].logs);
+  renderDiagnosis(SAMPLES[key].diagnosis);
+  const note = SAMPLES[key].note, n = $("#note");
+  if (note) { n.textContent = "note · " + note; n.hidden = false; } else n.hidden = true;
+}
+
+/* ---------- LIVE mode (your trained model via ui/server.py) ---------- */
+async function initLive() {
+  $("#mode-chip").innerHTML = `mode <b>live · your model</b>`;
+  $("#tabs").hidden = true; $("#console").hidden = false;
+  const sel = $("#c-scenario");
+  try {
+    const r = await fetch("/api/scenarios"); const j = await r.json();
+    j.scenarios.forEach(s => { const o = el("option"); o.value = s; o.textContent = SCEN_META[s]?.name || s; sel.appendChild(o); });
+  } catch (e) {}
+  $("#c-generate").addEventListener("click", doGenerate);
+  $("#c-diagnose").addEventListener("click", doDiagnose);
+  $("#c-load-custom").addEventListener("click", loadCustom);
+  $("#c-save").addEventListener("click", saveLog);
+  $("#c-upload").addEventListener("change", e => { const f = e.target.files[0]; if (f) handleUpload(f); e.target.value = ""; });
+  await doGenerate();
+}
+
+async function doGenerate() {
+  const body = {
+    scenario: $("#c-scenario").value,
+    seed: +$("#c-seed").value || 0,
+    noise: +$("#c-noise").value || 0,
+    inject: $("#c-inject").checked,
+  };
+  setBusy(true, "generating…");
+  try {
+    const r = await fetch("/api/generate", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "generate failed");
+    curGT = j.ground_truth; curName = body.scenario; curSeed = body.seed;
+    renderLogs(j.logs);
+    clearDiagnosis(`Logs ready (${j.logs.length} lines). Click Diagnose ▶ to run your model.`);
+    const n = $("#note"); if (j.note) { n.textContent = "note · " + j.note; n.hidden = false; } else n.hidden = true;
+  } catch (e) { clearDiagnosis("⚠ " + e.message); }
+  setBusy(false);
+}
+
+async function doDiagnose() {
+  if (!curLogs.length) return;
+  setBusy(true, "analyzing…");
+  $("#verdict").textContent = "···"; $("#verdict-sum").textContent = "Your model is analyzing the logs…"; $("#match").hidden = true;
+  try {
+    const r = await fetch("/api/diagnose", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({logs: curLogs})});
+    const j = await r.json();
+    if (!r.ok) throw new Error(j.error || "diagnose failed");
+    renderDiagnosis(j);
+    setMatch(j.root_cause_component);
+  } catch (e) { clearDiagnosis("⚠ " + e.message); }
+  setBusy(false);
+}
+
+// parse a .log (rendered text) or a JSON list of log dicts — mirrors tools/analyze_logs.parse_logs
+function parseAny(text) {
+  text = (text || "").trim();
+  if (!text) return [];
+  if (text[0] === "[" || text[0] === "{") {
+    try {
+      let d = JSON.parse(text);
+      if (d && d.logs) d = d.logs;
+      if (Array.isArray(d) && d.length && typeof d[0] === "object")
+        return d.map(o => ({id:o.id, ts:o.ts, severity:o.severity, component:o.component, message:o.message}));
+    } catch (e) {}
+  }
+  const re = /^\[([^\]]+)\]\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/, out = [];
+  text.split("\n").forEach(line => {
+    const m = line.trim().match(re);
+    if (m) out.push({id:m[1], ts:m[2], severity:m[3], component:m[4], message:m[5]});
+  });
+  return out;
+}
+
+// render logs back to the .log text format (byte-compatible with core.render_logs / gen_logs)
+function renderLogText(logs) {
+  return logs.map(l =>
+    `[${l.id}] ${l.ts} ${String(l.severity||"").padEnd(8)} ${String(l.component||"").padEnd(12)} ${l.message}`
+  ).join("\n");
+}
+
+function download(name, text) {
+  const blob = new Blob([text], {type: "text/plain"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+function saveLog() {
+  if (!curLogs.length) return;
+  const name = (curName || "logs") + (curSeed != null ? "_s" + curSeed : "") + ".log";
+  download(name, renderLogText(curLogs) + "\n");
+}
+
+async function handleUpload(file) {
+  const text = await file.text();
+  const logs = parseAny(text);
+  if (!logs.length) { clearDiagnosis(`⚠ couldn't parse ${file.name} — expected [ID] ts SEV COMP msg, or a JSON log list`); return; }
+  curGT = null; curName = file.name.replace(/\.(log|json|txt)$/i, ""); curSeed = null;
+  renderLogs(logs);
+  clearDiagnosis(`Loaded ${logs.length} lines from ${file.name} — running your model…`);
+  await doDiagnose();   // upload = diagnose directly
+}
+
+function loadCustom() {
+  const logs = parseAny($("#c-custom").value);
+  if (!logs.length) { clearDiagnosis("⚠ couldn't parse any lines — format: [L001] 10:42:00.058 ERROR O-DU your message"); return; }
+  curGT = null; curName = "custom"; curSeed = null;
+  renderLogs(logs);
+  clearDiagnosis(`Loaded ${logs.length} custom lines. Click Diagnose ▶ to run your model.`);
+}
+
+function setBusy(on, label) {
+  const g = $("#c-generate"), d = $("#c-diagnose");
+  if (g) g.disabled = on;
+  if (d) { d.disabled = on; d.textContent = on ? (label || "working…") : "Diagnose ▶"; }
+}
+
+/* ---------- pick mode by probing for the backend ---------- */
+(async function init() {
+  let live = false;
+  try { const r = await fetch("/api/health", {cache:"no-store"}); live = r.ok; } catch (e) { live = false; }
+  if (live) initLive(); else initDemo();
+})();
+
+</script>
+</body>
+</html>

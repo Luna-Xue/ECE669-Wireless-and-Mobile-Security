@@ -1,0 +1,7 @@
+# Deps for running a locally fine-tuned explainer (explainer/local.py) and the
+# ui/server.py + tools/* — LOCAL ONLY, no API / no anthropic.
+# Heavy (~GB). CPU/MPS inference — NO bitsandbytes (that's CUDA-only / Colab).
+pydantic>=2
+torch
+transformers
+peft

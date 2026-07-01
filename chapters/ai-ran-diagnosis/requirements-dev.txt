@@ -1,0 +1,4 @@
+# Dev/test deps (the suite needs no model, no GPU, no API — runs in <1s).
+#   pip install -r requirements.txt -r requirements-dev.txt
+#   pytest
+pytest
