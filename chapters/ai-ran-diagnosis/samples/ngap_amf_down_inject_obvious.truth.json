@@ -1,0 +1,52 @@
+{
+  "scenario": "ngap_amf_down",
+  "seed": 3,
+  "noise": 8,
+  "inject": true,
+  "root_cause_component": "AMF",
+  "root_cause_summary": "The AMF became unreachable; the gNB lost its NGAP/N2 (SCTP) association, so NG setup retries failed and new UE registrations were rejected.",
+  "causal_chain": [
+    {
+      "component": "AMF",
+      "event": "AMF becomes unreachable (process down / N2 reset)",
+      "evidence_log_ids": [
+        "L001"
+      ]
+    },
+    {
+      "component": "O-CU-CP",
+      "event": "gNB loses SCTP/NGAP association to the AMF",
+      "evidence_log_ids": [
+        "L002",
+        "L003"
+      ]
+    },
+    {
+      "component": "O-CU-CP",
+      "event": "New UE registrations rejected (core down)",
+      "evidence_log_ids": [
+        "L005"
+      ]
+    },
+    {
+      "component": "O-DU",
+      "event": "DU sees UE attach attempts stall after RA",
+      "evidence_log_ids": [
+        "L008"
+      ]
+    },
+    {
+      "component": "O-CU-CP",
+      "event": "NG setup retries fail; no AMF available",
+      "evidence_log_ids": [
+        "L014",
+        "L015"
+      ]
+    }
+  ],
+  "recommended_actions": [
+    "Check the AMF process health and the N2 SCTP association.",
+    "Verify the gNB's AMF IP/port config and network reachability.",
+    "Restore the AMF, then confirm NG Setup succeeds."
+  ]
+}

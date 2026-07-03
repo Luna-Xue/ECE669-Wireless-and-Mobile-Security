@@ -1,0 +1,46 @@
+# === ECE 669 course repo — ignore rules apply to every chapter ===
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# --- Virtual envs ---
+.venv/
+venv/
+env/
+ENV/
+
+# --- Test / tooling caches ---
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# --- Trained model weights / adapters (NOT shipped — download or train; see chapter README) ---
+explainer-lora/
+models/
+*.safetensors
+explainer-lora.zip
+
+# --- Generated artifacts (regenerate with the chapter's scripts) ---
+data/
+collected/
+pii_check/
+my_attack.log
+*.log
+*.truth.json
+
+# --- Exception: security-lab sample windows are shipped teaching data, not generated cruft ---
+!chapters/ai-ran-diagnosis/samples/*.log
+!chapters/ai-ran-diagnosis/samples/*.truth.json
+
+# --- Secrets / local env ---
+.env
+
+# --- OS cruft ---
+.DS_Store
+Thumbs.db

@@ -12,17 +12,19 @@ optional Colab bonus (Lab 3).
 - Why you generate **labelled** data (logs *with* ground truth) to train and evaluate.
 - The `logs → structured diagnosis` contract and why structured output is checkable.
 - How to evaluate beyond accuracy: **evidence grounding, hallucination, causal chain, LOSO**.
-- Overfitting / shortcut learning, and prompt-injection robustness.
+- Overfitting / shortcut learning, and how trained robustness fails to generalize.
+- **Security:** red-team the explainer (prompt injection), and why subscriber **PII** keeps it local.
 
 ## Estimated time
-~90 min for Labs 1–2 & 4–6 (Lab 3 is optional, +30–60 min on Colab).
+~90–110 min for Labs 1–2 & 4–7 (Lab 3 is optional, +30–60 min on Colab).
 
 ---
 
 ## Setup (once)
 
 ```bash
-git clone <your-repo-url> ai-ran-diagnosis-lab && cd ai-ran-diagnosis-lab
+git clone https://github.com/Luna-Xue/ECE669-Wireless-and-Mobile-Security.git
+cd ECE669-Wireless-and-Mobile-Security/chapters/ai-ran-diagnosis
 python3 -m venv .venv && source .venv/bin/activate
 
 # Labs 1–2 (offline data) need only:
@@ -169,10 +171,30 @@ Note how LOSO accuracy compares to in-distribution accuracy.
 
 **Goal:** stress-test robustness and add a brand-new failure type.
 
-**A) Prompt injection** — a log line tries to hijack the model:
+**A) Prompt injection — red-team the explainer.** Logs are *untrusted* input. In `samples/`
+are three versions of the **same** incident (true root cause = **AMF**): clean, an **obvious**
+injection, and a **stealth** injection whose payload hides inside a malformed field — the kind
+of attacker-controlled string a *fuzzer* produces. Run all three:
 ```bash
-python demo.py sync_loss --inject --truth          # see the buried "SYSTEM NOTICE: ignore..." line
-python demo.py sync_loss --inject --local --truth  # does the model obey it, or ignore it?
+python tools/analyze_logs.py samples/ngap_amf_down_clean.log
+python tools/analyze_logs.py samples/ngap_amf_down_inject_obvious.log
+python tools/analyze_logs.py samples/ngap_amf_down_inject_stealth.log
+```
+(You can also mint an obvious-injection window yourself: `python demo.py ngap_amf_down --inject --local --truth`.)
+
+**Checkpoint** — Which windows does the model get right? Open each `.log` and find the malicious
+line. The obvious wording it was *trained* to resist (~10% of training windows carry it); the
+stealth one is out-of-distribution.
+
+**The defense — evidence grounding.** Even if the top-line answer flips, look at the
+`evidence_log_ids` the model cites *for that answer*. Do those lines actually support it, or do
+they still point at the real culprit? (Same check that flags hallucinated IDs in Lab 5.)
+
+**Now craft your own.** Copy the clean window, bury your own injection in a field, and test it:
+```bash
+cp samples/ngap_amf_down_clean.log my_attack.log
+#   ...edit my_attack.log: add/modify a line whose message hides an instruction...
+python tools/analyze_logs.py my_attack.log
 ```
 
 **B) Harder data** — remove the "loudest = root cause" shortcut:
@@ -190,10 +212,35 @@ python demo.py <your_scenario> --truth
 It appears automatically in the UI dropdown and in `gen_logs`/`make_dataset` — no other changes.
 
 **Think about it**
-1. Did the model resist the injection? Why must logs be treated as *data, not instructions*?
+1. Why did the model resist the *obvious* injection but not the *stealth* one? What does that
+   say about claims like "we trained it to be safe"?
 2. With `--augment`, does the model still find the root cause when severity isn't a clue?
 3. Your new failure type: can the **current** model diagnose it? Why or why not?
    (What would you have to do for it to work — see Lab 3 + Lab 5.)
+
+---
+
+## Lab 7 — PII & the trust boundary  *(no GPU, no model)*
+
+**Goal:** see *why* the explainer runs locally — the logs are full of subscriber identity.
+
+**Steps**
+```bash
+python demo.py auth_failure --truth                       # a subscriber-auth failure
+python tools/gen_logs.py --random 5 --outdir pii_check/   # a handful of fresh windows
+# how much identity is exposed across them?
+grep -ohE 'imsi-[0-9]+|[0-9]{1,3}(\.[0-9]{1,3}){3}' pii_check/*.log | sort -u
+```
+
+**Checkpoint** — Count the distinct IMSIs / IPs. In a real network these are **real subscribers**
+(SUPI/IMSI), their sessions, and internal addresses — exactly the data you must not spill.
+
+**Think about it**
+1. The optional API path (`--llm`) ships the whole window to a third-party cloud model. What just
+   crossed your trust boundary, and who becomes a processor of that PII?
+2. That's why the default explainer is **local** (no key, nothing leaves the machine). When is the
+   local-small vs. cloud-big trade-off worth it?
+3. What would you redact before diagnosis — and what diagnostic signal breaks if you do?
 
 ---
 
@@ -204,6 +251,9 @@ It appears automatically in the UI dropdown and in `gen_logs`/`make_dataset` —
   (retrain), and report LOSO + evidence-grounding metrics for it.
 - **Better evaluation:** extend [eval_metrics.py](eval_metrics.py) with a metric you think is
   missing (e.g. causal-chain *ordering* correctness) and justify it.
+- **Harden it (security):** design a defense against the stealth injection (input delimiting /
+  sanitization, or a grounding verifier that rejects a root cause its own evidence doesn't
+  support), implement it, and measure attack-success-rate before vs. after.
 
 ## How it fits together
 ```
@@ -213,6 +263,8 @@ training/ + notebooks/  build dataset, fine-tune  (Lab 2, 3)
 explainer/local.py      base + your LoRA adapter   (Lab 4)
 ui/server.py + ui/index.html   visual explainer    (Lab 4)
 eval.py + eval_metrics.py + tools/   measure it     (Lab 5)
+samples/    injection windows to red-team          (Lab 6)
+tools/gen_logs.py + grep   PII in the logs          (Lab 7)
 tests/      pytest invariants (run: pytest)         (anytime)
 ```
 
