@@ -120,9 +120,11 @@ python demo.py prb_exhaustion --local --truth     # model diagnoses + auto-check
 python ui/server.py
 #    open http://127.0.0.1:8000   (use 127.0.0.1, not localhost)
 ```
-In the UI: pick a scenario → **Generate logs** → **Diagnose ▶** (first run loads the model,
-~40s). Then **click a step in the causal chain** — the evidence log lines light up. Try
-**Upload .log** with a file you make in Lab 6.
+In the UI (**Generate** tab): pick a scenario → **Diagnose** (first run loads the model, ~40s) —
+it generates a fresh window and diagnoses it. Then **click a step in the causal chain** and the
+evidence log lines light up. To diagnose your own logs, switch to the **Own logs** tab and paste
+or **upload** a `.log` (e.g. a file from Lab 6). Each run also appears in the chat on the left —
+click a past one to re-inspect it.
 
 **Checkpoint** — A diagnosis appears with a ✓/✗ badge comparing the prediction to ground truth.
 

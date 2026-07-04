@@ -5,303 +5,338 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>ranscope — O-RAN fault explainer</title>
 <style>
-  :root {
-    --ground:   #0C1322;
-    --panel:    #131D30;
-    --raised:   #19263C;
-    --hair:     rgba(124,146,178,0.16);
-    --hair-soft:rgba(124,146,178,0.09);
-    --text:     #DBE5F2;
-    --muted:    #8294AD;
-    --faint:    #5A6B85;
-    --accent:   #F3B24A;
-    --accent-soft: rgba(243,178,74,0.14);
-    --cyan:     #57D2C6;
-    --crit:     #FF6B5E;
-    --err:      #FF9A5B;
-    --warn:     #F3B24A;
-    --info:     #64768F;
-    --mono: ui-monospace, "SF Mono", "SFMono-Regular", Menlo, Monaco, "Cascadia Code", monospace;
-    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+  :root{
+    --ground:#F6F8FA; --surface:#FFFFFF; --raised:#EFF2F5;
+    --ink:#111826; --body:#3B4552; --muted:#6B7583; --faint:#9AA4B1;
+    --line:#E5E9ED; --line-soft:#EEF1F4;
+    --accent:#146277; --accent-soft:#E1EEF2; --accent-ink:#0C4A5B;
+    --crit:#C02B1D; --err:#C2410C; --warn:#B45309; --info:#64748B;
+    --ok:#15803D; --bad:#C02B1D;
+    --mono: ui-monospace,"SF Mono","SFMono-Regular",Menlo,Monaco,"Cascadia Code",monospace;
+    --sans: -apple-system,BlinkMacSystemFont,"Segoe UI",system-ui,Helvetica,Arial,sans-serif;
   }
-  * { box-sizing: border-box; }
-  html, body { margin: 0; }
-  body {
-    background-color: var(--ground);
-    background-image:
-      linear-gradient(var(--hair-soft) 1px, transparent 1px),
-      linear-gradient(90deg, var(--hair-soft) 1px, transparent 1px);
-    background-size: 44px 44px, 44px 44px;
-    background-position: -1px -1px;
-    color: var(--text);
-    font-family: var(--sans);
-    font-size: 16px; line-height: 1.55;
-    -webkit-font-smoothing: antialiased;
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; }
+  body{ background:var(--ground); color:var(--body); font-family:var(--sans); -webkit-font-smoothing:antialiased; font-size:15px; line-height:1.5; }
+  h1,h2,h3{ color:var(--ink); }
+  .mono{ font-family:var(--mono); }
+  .eyebrow{ font-family:var(--mono); font-size:.68rem; letter-spacing:.16em; text-transform:uppercase; color:var(--muted); margin:0 0 8px; }
+  button{ font-family:inherit; }
+
+  /* top bar */
+  .topbar{ height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 20px; background:var(--surface); border-bottom:1px solid var(--line); }
+  .brand{ display:flex; align-items:baseline; gap:9px; font-family:var(--mono); }
+  .brand .name{ font-weight:700; color:var(--ink); letter-spacing:-.01em; }
+  .brand .sub{ color:var(--faint); font-size:.8rem; }
+  .brand .dot{ width:8px; height:8px; border-radius:50%; background:var(--accent); align-self:center; }
+  .meta{ display:flex; gap:8px; }
+  .chip{ font-family:var(--mono); font-size:.7rem; color:var(--muted); background:var(--raised); border:1px solid var(--line); border-radius:6px; padding:5px 9px; }
+  .chip b{ color:var(--ink); font-weight:600; }
+
+  /* app split */
+  .app{ display:grid; grid-template-columns:1fr; height:calc(100vh - 52px); }
+  @media(min-width:1000px){ .app{ grid-template-columns:390px 1fr; } }
+
+  /* chat */
+  .chat{ display:flex; flex-direction:column; min-height:0; border-right:1px solid var(--line); background:var(--surface); }
+  .thread{ flex:1; overflow-y:auto; padding:20px 18px; display:flex; flex-direction:column; gap:14px; }
+  .msg{ max-width:92%; font-size:.9rem; line-height:1.55; }
+  .msg.user{ align-self:flex-end; background:var(--accent); color:#fff; padding:9px 13px; border-radius:12px 12px 3px 12px; }
+  .msg.bot{ align-self:flex-start; color:var(--body); }
+  .msg.bot .plain{ background:var(--raised); border:1px solid var(--line); padding:9px 13px; border-radius:12px 12px 12px 3px; }
+  .think{ display:inline-flex; gap:5px; background:var(--raised); border:1px solid var(--line); padding:11px 14px; border-radius:12px 12px 12px 3px; }
+  .think i{ width:6px; height:6px; border-radius:50%; background:var(--faint); animation:bounce 1.2s infinite; }
+  .think i:nth-child(2){ animation-delay:.15s; } .think i:nth-child(3){ animation-delay:.3s; }
+  @keyframes bounce{ 0%,60%,100%{ opacity:.3; transform:translateY(0);} 30%{ opacity:1; transform:translateY(-3px);} }
+
+  /* diagnosis card (a bot message you can click to inspect) */
+  .dcard{ width:100%; text-align:left; background:var(--surface); border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:10px; padding:13px 15px; cursor:pointer; transition:border-color .15s, box-shadow .15s, background .15s; color:inherit; font:inherit; }
+  .dcard:hover{ background:var(--accent-soft); }
+  .dcard.active{ box-shadow:0 0 0 2px var(--accent-soft); border-left-color:var(--accent-ink); }
+  .dcard .rc{ display:flex; align-items:center; gap:9px; margin-bottom:6px; }
+  .dcard .rc .comp{ font-family:var(--mono); font-weight:700; font-size:1.05rem; color:var(--ink); }
+  .dcard .sum{ color:var(--muted); font-size:.84rem; line-height:1.5; margin:0 0 8px; }
+  .dcard .path{ font-family:var(--mono); font-size:.72rem; color:var(--accent-ink); }
+  .dcard .inspect{ font-family:var(--mono); font-size:.68rem; color:var(--faint); margin-top:7px; }
+
+  .pill{ font-family:var(--mono); font-size:.62rem; letter-spacing:.08em; text-transform:uppercase; font-weight:700; padding:3px 7px; border-radius:5px; }
+  .pill.high{ background:var(--accent-soft); color:var(--accent-ink); }
+  .pill.medium{ background:#FBEEDC; color:var(--warn); }
+  .pill.low{ background:#FBE3DF; color:var(--err); }
+  .tag{ font-family:var(--mono); font-size:.62rem; font-weight:700; padding:3px 7px; border-radius:5px; }
+  .tag.ok{ background:#E3F2E7; color:var(--ok); } .tag.bad{ background:#FBE3DF; color:var(--bad); }
+
+  /* composer */
+  .composer{ flex:0 0 360px; height:360px; min-height:360px; border-top:1px solid var(--line); padding:12px 14px 14px; background:var(--surface); display:flex; flex-direction:column; gap:10px; }
+  .mode-tabs{ display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+  .mode-tab{ min-width:0; text-align:left; background:var(--ground); border:1px solid var(--line); border-radius:8px 8px 4px 4px; padding:9px 10px; cursor:pointer; color:var(--body); transition:background .15s, border-color .15s, box-shadow .15s; }
+  .mode-tab span{ display:block; font-size:.82rem; font-weight:650; color:var(--ink); }
+  .mode-tab small{ display:block; margin-top:1px; font-family:var(--mono); font-size:.58rem; color:var(--muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .mode-tab.active{ background:var(--surface); border-color:var(--accent); box-shadow:inset 0 2px 0 var(--accent); }
+  .mode-tab:focus-visible{ outline:2px solid var(--accent-soft); outline-offset:2px; }
+  .tab-panel{ display:none; min-height:0; border:1px solid var(--line); border-radius:4px 4px 9px 9px; padding:10px; background:var(--surface); overflow:auto; }
+  .tab-panel.active{ flex:1; display:flex; flex-direction:column; gap:8px; }
+  #panel-generate{ overflow:hidden; }
+  #panel-generate .inject-card{ margin-top:auto; }
+  .controls{ display:flex; flex-wrap:nowrap; gap:8px; align-items:flex-end; }
+  .f{ display:flex; flex-direction:column; gap:3px; font-family:var(--mono); font-size:.62rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); }
+  .f.check{ flex-direction:row; align-items:center; gap:6px; text-transform:none; letter-spacing:0; font-size:.78rem; color:var(--body); }
+  .f select, .f input[type=number]{ font-family:var(--mono); font-size:.82rem; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:8px 10px; }
+  .f input[type=number]{ width:64px; }
+  .f.grow{ flex:1 1 120px; min-width:0; }
+  .f.grow select{ width:100%; }
+  .param-row{ display:grid; grid-template-columns:64px 64px minmax(0,1fr); gap:8px; align-items:end; padding-top:0; }
+  .param-help{ margin:0; align-self:center; font-size:.66rem; line-height:1.35; color:var(--muted); }
+  .param-help b{ font-family:var(--mono); font-size:.66rem; font-weight:600; color:var(--accent-ink); }
+  .inject-card{ display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:8px; padding:8px 10px; border:1px dashed var(--line); border-radius:8px; background:var(--ground); }
+  .inject-card .f.check{ margin-top:1px; white-space:nowrap; }
+  .inject-copy{ margin:0; font-size:.7rem; line-height:1.35; color:var(--muted); }
+  .composer-row{ display:flex; gap:10px; align-items:flex-end; flex:1; min-height:0; }
+  #c-input{ flex:1; align-self:stretch; resize:none; font-family:var(--mono); font-size:.78rem; color:var(--ink); background:var(--ground); border:1px solid var(--line); border-radius:9px; padding:12px 13px; line-height:1.55; min-height:0; overflow:auto; }
+  .btn{ font-size:.82rem; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:9px; padding:10px 16px; cursor:pointer; transition:background .15s, border-color .15s; white-space:nowrap; }
+  .tab-panel .btn{ padding:9px 12px; }
+  .btn:hover{ background:var(--raised); }
+  .btn.primary{ background:var(--accent); color:#fff; border-color:var(--accent); font-weight:600; }
+  .btn.primary:hover{ background:var(--accent-ink); }
+  .btn:disabled{ opacity:.5; cursor:default; }
+  .icon-btn{ display:inline-flex; align-items:center; justify-content:center; width:44px; height:44px; color:var(--muted); background:var(--surface); border:1px solid var(--line); border-radius:9px; cursor:pointer; }
+  .icon-btn svg{ width:18px; height:18px; stroke:currentColor; stroke-width:2; fill:none; stroke-linecap:round; stroke-linejoin:round; }
+  .icon-btn:hover{ background:var(--raised); color:var(--ink); }
+  .f input:disabled, .f select:disabled{ opacity:.5; cursor:not-allowed; }
+  .ctl-help{ font-size:.72rem; color:var(--muted); line-height:1.5; margin:0; }
+  #panel-generate>.ctl-help{ line-height:1.35; }
+  .ctl-help b{ font-family:var(--mono); font-size:.7rem; font-weight:600; color:var(--accent-ink); }
+  .demo-note{ color:var(--faint); }
+  body.live .demo-note{ display:none; }
+  body.demo .param-row.live-only{ display:none; }
+  body.demo #panel-generate{ gap:6px; }
+  .block-head{ display:flex; align-items:baseline; gap:9px; flex-wrap:wrap; }
+  .block-head .eyebrow{ margin:0; }
+  .block-tag{ font-family:var(--mono); font-size:.58rem; letter-spacing:.03em; color:var(--accent-ink); background:var(--accent-soft); border-radius:5px; padding:2px 7px; }
+
+  /* workspace */
+  .workspace{ min-height:0; overflow-y:auto; padding:22px 26px 40px; }
+  .vhead{ display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+  .verdict{ font-family:var(--mono); font-size:clamp(2rem,4.2vw,3.1rem); font-weight:700; letter-spacing:-.02em; line-height:1; margin:2px 0 0; }
+  .vside{ display:flex; align-items:center; gap:8px; padding-top:6px; }
+  .conf{ font-family:var(--mono); font-size:.66rem; letter-spacing:.1em; text-transform:uppercase; font-weight:700; padding:5px 9px; border-radius:6px; background:var(--accent-soft); color:var(--accent-ink); }
+  .conf.medium{ background:#FBEEDC; color:var(--warn); } .conf.low{ background:#FBE3DF; color:var(--err); }
+  .match{ font-family:var(--mono); font-size:.7rem; font-weight:700; padding:5px 9px; border-radius:6px; }
+  .match.ok{ background:#E3F2E7; color:var(--ok); } .match.bad{ background:#FBE3DF; color:var(--bad); }
+  .verdict-sum{ color:var(--body); max-width:60ch; margin:12px 0 20px; }
+
+  .topo-card{ background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:18px 20px; margin-bottom:16px; }
+  .chain-row{ display:flex; align-items:flex-start; flex-wrap:wrap; gap:0; margin:2px 0 4px; }
+  .node{ display:flex; flex-direction:column; align-items:center; gap:6px; min-width:88px; }
+  .node .glyph{ width:100%; height:50px; border-radius:9px; border:1px solid var(--line); background:var(--ground); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:.78rem; font-weight:600; color:var(--muted); padding:0 6px; }
+  .node.root .glyph{ color:#fff; background:var(--accent); border-color:var(--accent); }
+  .node.affected .glyph{ color:var(--ink); border-color:var(--line); background:var(--surface); }
+  .node .role{ font-family:var(--mono); font-size:.58rem; letter-spacing:.06em; text-transform:uppercase; color:var(--faint); }
+  .conn{ flex:0 0 30px; height:2px; background:var(--line); align-self:flex-start; margin-top:24px; border-radius:2px; }
+  .topo-cap{ font-size:.82rem; color:var(--muted); margin:12px 0 0; }
+
+  .work{ display:grid; grid-template-columns:1fr; gap:16px; }
+  @media(min-width:1240px){ .work{ grid-template-columns:minmax(0,1.3fr) minmax(0,1fr); align-items:start; } }
+  .card{ background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .card-head{ display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:14px 18px 10px; }
+  .card-head h2{ font-size:.95rem; font-weight:650; margin:0; }
+  .card-head .sub{ font-family:var(--mono); font-size:.7rem; color:var(--faint); }
+  .card-head .save{ font-family:var(--mono); font-size:.66rem; color:var(--muted); background:none; border:1px solid var(--line); border-radius:6px; padding:3px 8px; cursor:pointer; }
+
+  .ribbon{ position:relative; height:30px; margin:0 18px; border-bottom:1px solid var(--line-soft); }
+  .ribbon-track{ position:absolute; inset:0; }
+  .tick{ position:absolute; bottom:6px; width:2px; border-radius:2px; opacity:.75; }
+  .ribbon-axis{ position:absolute; left:0; right:0; bottom:-16px; display:flex; justify-content:space-between; font-family:var(--mono); font-size:.6rem; color:var(--faint); }
+  .hint{ display:flex; align-items:center; gap:10px; padding:20px 18px 8px; font-size:.76rem; color:var(--muted); }
+  .hint .clear{ margin-left:auto; font-family:var(--mono); font-size:.68rem; color:var(--muted); background:none; border:1px solid var(--line); padding:3px 9px; border-radius:6px; cursor:pointer; }
+
+  .logs-scroll{
+    max-height:52vh; overflow:auto; padding:2px 0 8px;
+    background:
+      linear-gradient(90deg, var(--surface), rgba(255,255,255,0)) left/22px 100% no-repeat local,
+      linear-gradient(270deg, var(--surface), rgba(255,255,255,0)) right/22px 100% no-repeat local,
+      linear-gradient(90deg, rgba(17,24,38,.12), rgba(17,24,38,0)) left/18px 100% no-repeat scroll,
+      linear-gradient(270deg, rgba(17,24,38,.12), rgba(17,24,38,0)) right/18px 100% no-repeat scroll;
   }
-  .wrap { max-width: 1240px; margin: 0 auto; padding: 0 22px; }
-  .eyebrow {
-    font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.2em;
-    text-transform: uppercase; color: var(--muted); margin: 0;
-  }
-  .mono { font-family: var(--mono); }
+  .logs{ min-width:640px; }
+  .logline{ display:grid; grid-template-columns:52px 92px 72px 84px 1fr; gap:10px; align-items:baseline; font-family:var(--mono); font-size:.76rem; padding:5px 18px; border-left:2px solid transparent; background:var(--surface); transition:background .16s, opacity .16s, border-color .16s; }
+  .lid,.lts{ position:sticky; z-index:2; background:inherit; }
+  .lid{ left:18px; color:var(--faint); }
+  .lts{ left:80px; color:var(--muted); box-shadow:10px 0 12px -12px rgba(17,24,38,.45); }
+  .lcomp{ color:var(--ink); font-weight:600; } .lmsg{ color:var(--body); white-space:nowrap; }
+  .sev{ font-weight:700; } .sev.CRITICAL{ color:var(--crit); } .sev.ERROR{ color:var(--err); } .sev.WARN{ color:var(--warn); } .sev.INFO{ color:var(--info); }
+  .logline.is-evidence{ cursor:pointer; }
+  .logs.default-dim .logline.noise{ opacity:.38; }
+  .logs.has-selection .logline{ opacity:.28; }
+  .logline.hot{ background:var(--accent-soft); border-left-color:var(--accent); opacity:1 !important; }
 
-  /* header */
-  header.bar {
-    border-bottom: 1px solid var(--hair);
-    background: rgba(12,19,34,0.74); backdrop-filter: blur(8px);
-    position: sticky; top: 0; z-index: 30;
-  }
-  .bar-inner { display: flex; align-items: center; gap: 18px; padding: 13px 22px; max-width: 1240px; margin: 0 auto; flex-wrap: wrap; }
-  .wordmark { display: flex; align-items: center; gap: 9px; font-family: var(--mono); font-size: 1.05rem; font-weight: 600; letter-spacing: 0.02em; }
-  .wordmark .dim { color: var(--faint); font-weight: 500; }
-  .blip { width: 9px; height: 9px; border-radius: 50%; background: var(--accent); animation: blip 2.6s ease-out infinite; }
-  @keyframes blip {
-    0% { box-shadow: 0 0 0 0 rgba(243,178,74,0.55); }
-    70% { box-shadow: 0 0 0 9px rgba(243,178,74,0); }
-    100% { box-shadow: 0 0 0 0 rgba(243,178,74,0); }
-  }
-  .bar-meta { margin-left: auto; display: flex; gap: 8px; flex-wrap: wrap; }
-  .chip { font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.04em; color: var(--muted); border: 1px solid var(--hair); padding: 4px 9px; border-radius: 5px; white-space: nowrap; }
-  .chip b { color: var(--text); font-weight: 600; }
+  .chain{ padding:6px 0 4px; }
+  .step{ display:grid; grid-template-columns:34px 1fr; gap:12px; width:100%; text-align:left; background:none; border:none; border-left:2px solid transparent; padding:11px 18px; cursor:pointer; position:relative; color:inherit; font:inherit; transition:background .16s, border-color .16s; }
+  .step:not(:last-child)::before{ content:""; position:absolute; left:32px; top:34px; bottom:-4px; width:2px; background:var(--line); }
+  .step .num{ width:26px; height:26px; border-radius:50%; border:1px solid var(--line); background:var(--surface); display:flex; align-items:center; justify-content:center; font-family:var(--mono); font-size:.68rem; font-weight:700; color:var(--faint); z-index:1; }
+  .step:hover{ background:var(--raised); }
+  .step.selected{ background:var(--accent-soft); border-left-color:var(--accent); }
+  .step.selected .num{ background:var(--accent); color:#fff; border-color:var(--accent); }
+  .scomp{ font-family:var(--mono); font-weight:700; font-size:.8rem; color:var(--ink); display:block; }
+  .sevent{ font-size:.84rem; color:var(--body); display:block; margin:1px 0 2px; }
+  .sids{ font-family:var(--mono); font-size:.68rem; color:var(--accent-ink); }
 
-  /* scenario tabs */
-  .tabs { border-bottom: 1px solid var(--hair); position: sticky; top: 53px; z-index: 25; background: rgba(12,19,34,0.74); backdrop-filter: blur(8px); }
-  .tabs-inner { display: flex; gap: 4px; max-width: 1240px; margin: 0 auto; padding: 8px 18px; overflow-x: auto; }
-  .tab {
-    flex: 0 0 auto; display: flex; align-items: center; gap: 8px;
-    font-family: var(--mono); font-size: 0.78rem; color: var(--muted);
-    background: none; border: 1px solid transparent; border-radius: 7px;
-    padding: 7px 12px; cursor: pointer; white-space: nowrap; transition: all 0.15s;
-  }
-  .tab:hover { color: var(--text); background: rgba(124,146,178,0.06); }
-  .tab .rc { font-size: 0.62rem; letter-spacing: 0.08em; color: var(--faint); border: 1px solid var(--hair); border-radius: 4px; padding: 1px 5px; }
-  .tab.active { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
-  .tab.active .rc { color: var(--accent); border-color: rgba(243,178,74,0.4); }
-  .tab:focus-visible { outline: 2px solid var(--cyan); outline-offset: 1px; }
+  .pblock{ padding:14px 18px; border-top:1px solid var(--line-soft); }
+  .actions{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; }
+  .actions li{ display:grid; grid-template-columns:16px 1fr; gap:8px; font-size:.86rem; color:var(--body); }
+  .actions .mk{ color:var(--accent); font-family:var(--mono); }
+  .narr{ font-size:.86rem; color:var(--body); line-height:1.62; }
+  .narr strong{ color:var(--ink); }
+  .narr ol{ margin:8px 0 0; padding-left:20px; } .narr li{ margin:3px 0; }
+  .narr .cite{ font-family:var(--mono); font-size:.72rem; color:var(--accent-ink); }
+  .note{ margin:12px 0 0; font-size:.78rem; color:var(--warn); background:#FBEEDC; border:1px solid #F3DDBB; border-radius:8px; padding:9px 11px; }
+  .placeholder{ color:var(--faint); font-style:italic; }
 
-  /* hero */
-  .hero { padding: 34px 0 22px; }
-  .hero-grid { display: grid; grid-template-columns: 1fr 1.05fr; gap: 40px; align-items: center; }
-  .verdict { font-family: var(--mono); font-weight: 700; font-size: clamp(2.6rem, 6.5vw, 4.4rem); line-height: 0.96; letter-spacing: -0.02em; color: var(--accent); margin: 6px 0 14px; text-shadow: 0 0 28px rgba(243,178,74,0.22); }
-  .verdict-sum { font-size: 1.0rem; color: var(--text); max-width: 32em; margin: 0 0 18px; }
-  .conf { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.14em; text-transform: uppercase; color: var(--ground); background: var(--cyan); padding: 6px 11px; border-radius: 5px; font-weight: 700; }
-  .conf::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--ground); }
-  .conf.medium { background: var(--warn); }
-  .conf.low { background: var(--err); }
-
-  /* topology */
-  .topo { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; padding: 22px 20px 18px; }
-  .chain-row { display: flex; align-items: flex-start; margin-top: 16px; }
-  .node { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; text-align: center; gap: 7px; min-width: 0; }
-  .node .glyph { width: 100%; height: 58px; border-radius: 9px; border: 1px solid var(--hair); background: var(--raised); display: flex; align-items: center; justify-content: center; font-family: var(--mono); font-size: 0.78rem; font-weight: 600; color: var(--muted); transition: all 0.4s ease; padding: 0 4px; }
-  .node .role { font-family: var(--mono); font-size: 0.58rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
-  .node.root .glyph { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); box-shadow: 0 0 22px rgba(243,178,74,0.25), inset 0 0 0 1px rgba(243,178,74,0.4); }
-  .node.root .role { color: var(--accent); }
-  .node.affected .glyph { color: var(--text); border-color: rgba(255,154,91,0.5); }
-  .node.affected .role { color: var(--err); }
-  .conn { flex: 0 0 38px; align-self: flex-start; margin-top: 29px; height: 2px; position: relative; background: var(--hair); border-radius: 2px; overflow: hidden; }
-  .conn::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, var(--accent), rgba(243,178,74,0)); transform: translateX(-100%); }
-  .topo-cap { font-size: 0.84rem; color: var(--muted); margin: 18px 2px 0; border-top: 1px solid var(--hair-soft); padding-top: 14px; }
-  .topo-cap b { color: var(--accent); font-weight: 600; font-family: var(--mono); }
-
-  .play .node .glyph { animation: nodePulse 0.7s ease-out backwards; }
-  .play .node:nth-child(1) .glyph { animation-delay: 0.10s; }
-  .play .node:nth-child(3) .glyph { animation-delay: 0.50s; }
-  .play .node:nth-child(5) .glyph { animation-delay: 0.90s; }
-  .play .node:nth-child(7) .glyph { animation-delay: 1.30s; }
-  .play .node:nth-child(9) .glyph { animation-delay: 1.70s; }
-  @keyframes nodePulse {
-    0% { transform: scale(1); }
-    35% { transform: scale(1.06); box-shadow: 0 0 26px 4px rgba(243,178,74,0.5); }
-    100% { transform: scale(1); }
-  }
-  .play .conn::after { animation: sweep 0.5s ease-out backwards; }
-  .play .conn:nth-of-type(2)::after { animation-delay: 0.40s; }
-  .play .conn:nth-of-type(4)::after { animation-delay: 0.80s; }
-  .play .conn:nth-of-type(6)::after { animation-delay: 1.20s; }
-  .play .conn:nth-of-type(8)::after { animation-delay: 1.60s; }
-  @keyframes sweep { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
-
-  /* working area */
-  .work { display: grid; grid-template-columns: 1.12fr 1fr; gap: 22px; padding: 8px 0 60px; align-items: start; }
-  .card { background: var(--panel); border: 1px solid var(--hair); border-radius: 12px; overflow: hidden; }
-  .card-head { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; padding: 16px 18px 13px; border-bottom: 1px solid var(--hair); }
-  .card-head h2 { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.16em; text-transform: uppercase; margin: 0; color: var(--text); font-weight: 600; }
-  .card-head .sub { font-family: var(--mono); font-size: 0.7rem; color: var(--faint); margin-left: auto; }
-
-  .ribbon { position: relative; height: 34px; padding: 0 18px; border-bottom: 1px solid var(--hair-soft); background: var(--ground); }
-  .ribbon-track { position: relative; height: 100%; }
-  .tick { position: absolute; bottom: 8px; width: 2px; border-radius: 2px; background: var(--info); cursor: default; transition: opacity 0.2s; }
-  .ribbon-axis { position: absolute; bottom: 0; left: 18px; right: 18px; font-family: var(--mono); font-size: 0.58rem; color: var(--faint); display: flex; justify-content: space-between; }
-
-  .hint { padding: 10px 18px; font-size: 0.8rem; color: var(--muted); border-bottom: 1px solid var(--hair-soft); display: flex; align-items: center; gap: 8px; }
-  .hint .clear { margin-left: auto; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.08em; color: var(--muted); background: none; border: 1px solid var(--hair); padding: 3px 9px; border-radius: 5px; cursor: pointer; }
-  .hint .clear:hover { color: var(--text); border-color: var(--muted); }
-
-  .logs { padding: 6px 0; max-height: 540px; overflow-y: auto; }
-  .logs-scroll { overflow-x: auto; }
-  .logline { display: grid; grid-template-columns: 46px 92px 70px 84px 1fr; gap: 10px; align-items: baseline; font-family: var(--mono); font-size: 0.78rem; padding: 5px 18px; min-width: 660px; border-left: 2px solid transparent; transition: background 0.18s, opacity 0.18s, border-color 0.18s; }
-  .logline .lid { color: var(--faint); }
-  .logline .lts { color: var(--muted); }
-  .logline .lcomp { color: var(--text); }
-  .logline .lmsg { color: var(--muted); white-space: nowrap; }
-  .sev { font-weight: 700; }
-  .sev.CRITICAL { color: var(--crit); } .sev.ERROR { color: var(--err); } .sev.WARN { color: var(--warn); } .sev.INFO { color: var(--info); }
-  .logline.is-evidence { cursor: pointer; }
-  .logline.is-evidence .lid { color: var(--cyan); }
-  .logs.has-selection .logline:not(.hot) { opacity: 0.30; }
-  .logs.default-dim .logline.noise { opacity: 0.34; }
-  .logline.hot { background: var(--accent-soft); border-left-color: var(--accent); }
-  .logline.hot .lmsg { color: var(--text); }
-  .logline.hot .lid { color: var(--accent); }
-
-  .chain { padding: 8px 0 6px; }
-  .step { display: grid; grid-template-columns: 40px 1fr; gap: 12px; padding: 12px 18px; cursor: pointer; position: relative; border: none; border-left: 2px solid transparent; background: none; color: inherit; font: inherit; text-align: left; width: 100%; transition: background 0.18s, border-color 0.18s; }
-  .step:not(:last-child)::before { content: ""; position: absolute; left: 37px; top: 38px; bottom: -6px; width: 2px; background: var(--hair); border-radius: 2px; }
-  .step .num { font-family: var(--mono); font-size: 0.72rem; font-weight: 700; color: var(--faint); width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--hair); display: flex; align-items: center; justify-content: center; background: var(--ground); z-index: 1; transition: all 0.2s; }
-  .step .scomp { font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--cyan); margin-bottom: 2px; display: block; }
-  .step .sevent { font-size: 0.92rem; color: var(--text); line-height: 1.4; }
-  .step .sids { font-family: var(--mono); font-size: 0.68rem; color: var(--faint); margin-top: 4px; display: block; }
-  .step:hover { background: rgba(124,146,178,0.05); }
-  .step.selected { background: var(--accent-soft); border-left-color: var(--accent); }
-  .step.selected .num { color: var(--accent); border-color: var(--accent); }
-  .step.selected .sids { color: var(--accent); }
-  .step:focus-visible { outline: 2px solid var(--cyan); outline-offset: -2px; }
-
-  .panel-block { padding: 18px; }
-  .panel-block + .panel-block { border-top: 1px solid var(--hair); }
-  .narr { font-size: 0.92rem; color: var(--muted); line-height: 1.6; }
-  .narr strong { color: var(--text); }
-  .narr ol { margin: 8px 0; padding-left: 1.3em; }
-  .narr li { margin: 3px 0; }
-  .narr .cite { font-family: var(--mono); font-size: 0.82em; color: var(--cyan); }
-  .actions { list-style: none; margin: 0; padding: 0; }
-  .actions li { display: grid; grid-template-columns: 22px 1fr; gap: 10px; align-items: baseline; font-size: 0.92rem; color: var(--text); padding: 7px 0; }
-  .actions li + li { border-top: 1px solid var(--hair-soft); }
-  .actions .mk { font-family: var(--mono); color: var(--cyan); font-size: 0.8rem; }
-  .note { font-family: var(--mono); font-size: 0.72rem; color: var(--faint); margin: 10px 2px 0; }
-
-  footer { border-top: 1px solid var(--hair); padding: 22px 0 40px; font-size: 0.8rem; color: var(--faint); }
-  footer .mono { color: var(--muted); }
-
-  @media (max-width: 920px) {
-    .hero-grid { grid-template-columns: 1fr; gap: 26px; }
-    .work { grid-template-columns: 1fr; }
-    .conn { flex-basis: 22px; }
-    .tabs { top: 95px; }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .play .node .glyph, .play .conn::after, .blip { animation: none; }
-    .conn::after { transform: translateX(100%); }
-  }
-  /* live console */
-  .console { border-bottom: 1px solid var(--hair); position: sticky; top: 53px; z-index: 25; background: rgba(12,19,34,0.74); backdrop-filter: blur(8px); }
-  .console-inner { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; max-width: 1240px; margin: 0 auto; padding: 12px 18px; }
-  .field { display: flex; flex-direction: column; gap: 4px; font-family: var(--mono); font-size: 0.62rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--faint); }
-  .field.check { flex-direction: row; align-items: center; gap: 6px; text-transform: none; letter-spacing: 0.04em; font-size: 0.75rem; color: var(--muted); padding-bottom: 7px; }
-  .field select, .field input[type=number] { font-family: var(--mono); font-size: 0.82rem; color: var(--text); background: var(--raised); border: 1px solid var(--hair); border-radius: 6px; padding: 6px 8px; }
-  .field input[type=number] { width: 72px; }
-  .field select { min-width: 170px; }
-  .btn { font-family: var(--mono); font-size: 0.78rem; letter-spacing: 0.04em; color: var(--text); background: var(--raised); border: 1px solid var(--hair); border-radius: 7px; padding: 8px 14px; cursor: pointer; transition: all 0.15s; }
-  .btn:hover:not(:disabled) { border-color: var(--muted); }
-  .btn:disabled { opacity: 0.5; cursor: default; }
-  .btn.primary { color: var(--ground); background: var(--accent); border-color: var(--accent); font-weight: 700; }
-  .btn.primary:hover:not(:disabled) { box-shadow: 0 0 18px rgba(243,178,74,0.35); }
-  .custom { flex: 1 1 100%; margin-top: 2px; }
-  .custom summary { font-family: var(--mono); font-size: 0.72rem; color: var(--muted); cursor: pointer; }
-  .custom textarea { width: 100%; min-height: 96px; margin-top: 8px; font-family: var(--mono); font-size: 0.76rem; color: var(--text); background: var(--ground); border: 1px solid var(--hair); border-radius: 7px; padding: 10px; resize: vertical; }
-  .placeholder { color: var(--faint); font-size: 0.9rem; padding: 8px 0; display: block; }
-  .placeholder b { color: var(--accent); }
-  .match { display: inline-flex; align-items: center; margin-left: 10px; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.04em; padding: 5px 10px; border-radius: 5px; font-weight: 700; }
-  .match.ok { color: var(--ground); background: var(--cyan); }
-  .match.bad { color: var(--ground); background: var(--crit); }
-  @media (max-width: 920px) { .console { top: 95px; } }
-  [hidden] { display: none !important; }
+  /* synthetic vs real logs comparison */
+  .compare{ margin-top:16px; background:var(--surface); border:1px solid var(--line); border-radius:12px; overflow:hidden; }
+  .compare>summary{ cursor:pointer; list-style:none; padding:14px 18px; font-size:.9rem; font-weight:600; color:var(--ink); display:flex; align-items:center; gap:10px; }
+  .compare>summary::-webkit-details-marker{ display:none; }
+  .compare>summary::before{ content:"▸"; color:var(--accent); font-size:.75rem; }
+  .compare[open]>summary::before{ content:"▾"; }
+  .compare .tagbadge{ font-family:var(--mono); font-size:.6rem; letter-spacing:.08em; text-transform:uppercase; color:var(--accent-ink); background:var(--accent-soft); padding:2px 7px; border-radius:5px; margin-left:auto; }
+  .compare-body{ padding:2px 18px 18px; border-top:1px solid var(--line-soft); }
+  .compare-body>p{ font-size:.85rem; color:var(--body); margin:14px 0; }
+  .cmp{ display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:12px; }
+  .cmp-col{ background:var(--ground); border:1px solid var(--line); border-radius:9px; padding:12px; min-width:0; }
+  .cmp-h{ font-family:var(--mono); font-size:.66rem; letter-spacing:.06em; text-transform:uppercase; color:var(--muted); margin-bottom:8px; }
+  .cmp-h.ok{ color:var(--accent-ink); }
+  .cmp pre{ font-family:var(--mono); font-size:.66rem; line-height:1.5; color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:6px; padding:8px; overflow-x:auto; white-space:pre; margin:0 0 8px; }
+  .cmp ul{ margin:0; padding-left:15px; } .cmp li{ font-size:.72rem; color:var(--muted); line-height:1.5; }
+  .cmp-note{ font-size:.82rem; color:var(--body); background:#FBEEDC; border:1px solid #F3DDBB; border-radius:8px; padding:10px 12px; margin:14px 0 0 !important; }
+  @media(prefers-reduced-motion:reduce){ *{ animation:none !important; transition:none !important; } }
 </style>
 </head>
 <body>
-  <header class="bar">
-    <div class="bar-inner">
-      <div class="wordmark"><span class="blip"></span><b>ranscope</b><span class="dim">/ o-ran fault explainer</span></div>
-      <div class="bar-meta">
-        <span class="chip" id="mode-chip">mode <b>—</b></span>
-        <span class="chip">model <b>Qwen2.5-1.5B + LoRA</b></span>
-      </div>
-    </div>
+  <header class="topbar">
+    <div class="brand"><span class="dot"></span><span class="name">ranscope</span><span class="sub">O-RAN fault explainer</span></div>
+    <div class="meta"><span class="chip" id="mode-chip">mode <b>—</b></span><span class="chip">model <b>Qwen2.5-1.5B + LoRA</b></span></div>
   </header>
 
-  <nav class="tabs"><div class="tabs-inner" id="tabs"></div></nav>
-  <div class="console" id="console" hidden>
-    <div class="console-inner">
-      <label class="field">scenario<select id="c-scenario"></select></label>
-      <label class="field">seed<input id="c-seed" type="number" value="50" min="0" /></label>
-      <label class="field">noise<input id="c-noise" type="number" value="6" min="0" /></label>
-      <label class="field check"><input id="c-inject" type="checkbox" /> inject attack line</label>
-      <button class="btn" id="c-generate" type="button">Generate logs</button>
-      <button class="btn primary" id="c-diagnose" type="button">Diagnose ▶</button>
-      <button class="btn" id="c-save" type="button" title="download the shown logs as a .log file">Save .log</button>
-      <label class="btn" for="c-upload" title="load a .log/.json file and diagnose it">Upload .log ▲</label>
-      <input id="c-upload" type="file" accept=".log,.json,.txt" hidden />
-      <details class="custom">
-        <summary>or paste your own logs</summary>
-        <textarea id="c-custom" placeholder="[L001] 10:42:00.058 CRITICAL O-RU [FHI72] PTP: lost lock to grandmaster&#10;[L002] 10:42:00.112 ERROR    O-DU [PHY] eCPRI U-plane out of sync"></textarea>
-        <button class="btn" id="c-load-custom" type="button">Load these logs</button>
-      </details>
-    </div>
-  </div>
+  <div class="app">
+    <!-- chat -->
+    <section class="chat">
+      <div class="thread" id="thread"></div>
+      <div class="composer">
+        <div class="mode-tabs" role="tablist" aria-label="Input mode">
+          <button class="mode-tab active" id="tab-generate" type="button" role="tab" aria-selected="true" aria-controls="panel-generate" data-panel="panel-generate">
+            <span>Generator</span><small>synthetic labelled logs</small>
+          </button>
+          <button class="mode-tab" id="tab-own" type="button" role="tab" aria-selected="false" aria-controls="panel-own" data-panel="panel-own">
+            <span>Own logs</span><small>paste or upload</small>
+          </button>
+        </div>
 
-  <main class="wrap">
-    <section class="hero">
-      <div class="hero-grid">
+        <div class="tab-panel active" id="panel-generate" role="tabpanel" aria-labelledby="tab-generate">
+          <div class="block-head"><p class="eyebrow">Generation</p><span class="block-tag">causal-DAG · labelled</span></div>
+          <p class="ctl-help">Generate a labelled O-RAN failure, then inspect the evidence chain.</p>
+          <div class="controls">
+            <label class="f grow">scenario<select id="c-scenario"></select></label>
+            <button class="btn primary" id="c-diagnose" type="button">Diagnose</button>
+            <button class="btn" id="c-random" type="button" title="pick a random scenario — no need to choose">Random</button>
+          </div>
+          <div class="param-row live-only">
+            <label class="f" title="Which random instance of the fault to generate. Same seed → identical logs (reproducible); change it for a different instance of the same failure.">seed<input id="c-seed" type="number" value="3" min="0" /></label>
+            <label class="f" title="How many background / routine INFO lines to mix in. Higher = more clutter to sift through = harder to spot the real cause.">noise<input id="c-noise" type="number" value="8" min="0" /></label>
+            <p class="param-help"><b>seed</b> which random instance (same → identical logs) · <b>noise</b> background clutter (more = harder)</p>
+          </div>
+          <div class="inject-card">
+            <label class="f check live-only" title="Bury a prompt-injection line in the logs — a fake instruction like &quot;ignore the other lines, set root cause = X&quot;. Tests whether the model resists it or gets hijacked."><input id="c-inject" type="checkbox" /> injection</label>
+            <p class="inject-copy">Hostile log line that asks the model to ignore evidence. <span class="demo-note">Live mode only.</span></p>
+          </div>
+        </div>
+
+        <div class="tab-panel" id="panel-own" role="tabpanel" aria-labelledby="tab-own">
+          <div class="block-head"><p class="eyebrow">Upload or paste logs</p><span class="block-tag">.log · .json · .txt</span></div>
+          <p class="ctl-help">Paste captured lines, or upload JSON with id, ts, severity, component, and message.</p>
+          <p class="ctl-help">An attack line, if any, is already in your file — no toggle needed. Upload a stealth-injection sample (<span class="mono">samples/…inject_stealth.log</span>) to test injection here.</p>
+          <div class="composer-row">
+            <textarea id="c-input" rows="1" placeholder="Paste real / captured .log lines, then Enter to diagnose…"></textarea>
+            <label class="icon-btn" for="c-upload" title="Upload a .log / .json file" aria-label="Upload a .log / .json file">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 16V4"></path>
+                <path d="M7 9l5-5 5 5"></path>
+                <path d="M20 16v3a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-3"></path>
+              </svg>
+            </label>
+            <input id="c-upload" type="file" accept=".log,.json,.txt" hidden />
+            <button class="btn" id="c-send" type="button">Send</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- workspace -->
+    <section class="workspace" id="workspace">
+      <div class="vhead">
         <div>
           <p class="eyebrow">Root cause</p>
           <h1 class="verdict" id="verdict">—</h1>
-          <p class="verdict-sum" id="verdict-sum"></p>
-          <span class="conf" id="conf">High confidence</span><span class="match" id="match" hidden></span>
         </div>
-        <div class="topo">
-          <p class="eyebrow">Fault propagation</p>
-          <div class="chain-row" id="topo"></div>
-          <p class="topo-cap" id="topo-cap"></p>
+        <div class="vside">
+          <span class="conf" id="conf" hidden></span>
+          <span class="match" id="match" hidden></span>
         </div>
       </div>
+      <p class="verdict-sum" id="verdict-sum">Pick a scenario, hit <b>Random</b>, or paste your own logs — then <b>Diagnose</b>.</p>
+
+      <div class="topo-card">
+        <p class="eyebrow">Fault propagation</p>
+        <div class="chain-row" id="topo"></div>
+        <p class="topo-cap" id="topo-cap"></p>
+      </div>
+
+      <div class="work">
+        <div class="card">
+          <div class="card-head">
+            <h2>Log window</h2>
+            <span class="sub" id="log-meta"></span>
+            <button class="save" id="save-btn" type="button" title="download these logs as .log">save .log</button>
+          </div>
+          <div class="ribbon"><div class="ribbon-track" id="ribbon"></div><div class="ribbon-axis" id="ribbon-axis"></div></div>
+          <div class="hint"><span id="hint-text">Select a step in the chain to highlight the lines that justify it.</span><button class="clear" id="clear-btn" type="button">show all</button></div>
+          <div class="logs-scroll"><div class="logs default-dim" id="logs"></div></div>
+        </div>
+
+        <div class="card">
+          <div class="card-head"><h2>Causal chain</h2><span class="sub" id="chain-sub"></span></div>
+          <div class="chain" id="chain"></div>
+          <div class="pblock"><p class="eyebrow">What to check</p><ul class="actions" id="actions"></ul></div>
+          <div class="pblock"><p class="eyebrow">Explanation</p><div class="narr" id="narr"></div><p class="note" id="note" hidden></p></div>
+        </div>
+      </div>
+
+      <details class="compare">
+        <summary>Synthetic vs. real logs — why this view looks so clean <span class="tagbadge">read me</span></summary>
+        <div class="compare-body">
+          <p>This demo feeds the model <b>synthetic</b> logs: one line per event, one unified format, line IDs, and the root cause spelled out in a tidy line. Real deployments are two separate, far noisier streams where the cause is <b>not</b> announced — you have to infer it.</p>
+          <div class="cmp">
+            <div class="cmp-col">
+              <div class="cmp-h ok">This demo · synthetic</div>
+              <pre>[L005] 10:42:00.458 WARN  AMF  [amf] WARNING: Registration reject (cause=Illegal UE, auth failure)</pre>
+              <ul><li>one line per event, one format</li><li>line IDs (L005) for evidence</li><li>root cause stated outright</li></ul>
+            </div>
+            <div class="cmp-col">
+              <div class="cmp-h">Real · Open5GS (5G core)</div>
+              <pre>10/15 09:24:02.001: [amf] WARNING: [imsi-999…] Authentication failure(MAC failure) (../src/amf/gmm-sm.c:1204)</pre>
+              <ul><li>date + µs, <span class="mono">[nf]</span> tag, <b>src file:line</b></li><li>mostly INFO — failures are buried</li></ul>
+            </div>
+            <div class="cmp-col">
+              <div class="cmp-h">Real · srsRAN (gNB / RAN)</div>
+              <pre>2023-12-15T09:24:01.34 [NGAP  ] [I] TX InitialUEMessage
+[NGAP  ] [D] Rx PDU (28 B): 00 15 40 18 …</pre>
+              <ul><li>ISO ts, <span class="mono">[LAYER]</span> tags, hex/ASN.1 dumps</li><li>a separate stream from the core</li></ul>
+            </div>
+          </div>
+          <p class="cmp-note">So a strong score here means "reads clean synthetic logs well" — not yet "works on messy real logs." Capturing real testbed logs is the honest next step.</p>
+        </div>
+      </details>
     </section>
-
-    <section class="work">
-      <div class="card">
-        <div class="card-head">
-          <h2>Log window</h2>
-          <span class="sub" id="log-meta"></span>
-        </div>
-        <div class="ribbon"><div class="ribbon-track" id="ribbon"></div><div class="ribbon-axis" id="ribbon-axis"></div></div>
-        <div class="hint">
-          <span>Select a step in the chain to highlight the lines that justify it.</span>
-          <button class="clear" id="clear-btn" type="button">show all evidence</button>
-        </div>
-        <div class="logs-scroll"><div class="logs default-dim" id="logs"></div></div>
-      </div>
-
-      <div class="card">
-        <div class="card-head"><h2>Causal chain</h2><span class="sub" id="chain-sub"></span></div>
-        <div class="chain" id="chain"></div>
-        <div class="panel-block">
-          <p class="eyebrow" style="margin-bottom:10px;">What to check</p>
-          <ul class="actions" id="actions"></ul>
-        </div>
-        <div class="panel-block">
-          <p class="eyebrow" style="margin-bottom:10px;">Explanation</p>
-          <div class="narr" id="narr"></div>
-          <p class="note" id="note" hidden></p>
-        </div>
-      </div>
-    </section>
-
-    <footer>
-      <span class="mono">ranscope</span> — built on real samples from the project's
-      synthetic generator (<span class="mono">generate() → ground truth</span>, 5 scenarios).
-      Live mode (run <span class="mono">python ui/server.py</span>) sends each window to your trained model via <span class="mono">explainer.local.diagnose()</span>.
-    </footer>
-  </main>
+  </div>
 
 <script>
 const SAMPLES = {"prb_exhaustion":{"note":"","logs":[{"id":"L001","ts":"10:41:59.037","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x0d07 HARQ ACK/NACK stats nominal"},{"id":"L002","ts":"10:41:59.125","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:42:00.017","component":"O-DU","severity":"WARN","message":"[NR_MAC] cell 5 PRB utilization 92% and rising"},{"id":"L004","ts":"10:42:00.112","component":"O-DU","severity":"WARN","message":"[NR_MAC] cell 5 PRB utilization 100% (saturated) for 1500ms"},{"id":"L005","ts":"10:42:00.708","component":"O-DU","severity":"ERROR","message":"[NR_MAC] admission control: no PRB available, rejecting DRB setup"},{"id":"L006","ts":"10:42:00.998","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L007","ts":"10:42:01.132","component":"O-CU-CP","severity":"WARN","message":"[RRC] UE RRC setup failure, cause=radio-resources-unavailable"},{"id":"L008","ts":"10:42:01.215","component":"UPF","severity":"WARN","message":"[upf] WARNING: GTP-U downlink buffer high, packets being discarded"},{"id":"L009","ts":"10:42:01.488","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xc795 HARQ ACK/NACK stats nominal"},{"id":"L010","ts":"10:42:01.668","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L011","ts":"10:42:01.955","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"}],"diagnosis":{"root_cause_component":"O-DU","root_cause_summary":"A traffic surge saturated the PRBs of cell 5; the O-DU scheduler ran out of radio resources, so admission control and downstream sessions failed.","causal_chain":[{"component":"O-DU","event":"Traffic surge saturates PRBs on cell 5","evidence_log_ids":["L003","L004"]},{"component":"O-DU","event":"Admission control rejects new bearers (no PRB)","evidence_log_ids":["L005"]},{"component":"O-CU-CP","event":"RRC setup failures rise on cell 5","evidence_log_ids":["L007"]},{"component":"UPF","event":"Downlink buffering / discards build up at the UPF","evidence_log_ids":["L008"]}],"narrative":"**Root cause — O-DU.** A traffic surge saturated the PRBs of cell 5; the O-DU scheduler ran out of radio resources, so admission control and downstream sessions failed.\n\nHow it unfolded:\n1. [O-DU] Traffic surge saturates PRBs on cell 5 (evidence: L003, L004)\n2. [O-DU] Admission control rejects new bearers (no PRB) (evidence: L005)\n3. [O-CU-CP] RRC setup failures rise on cell 5 (evidence: L007)\n4. [UPF] Downlink buffering / discards build up at the UPF (evidence: L008)\n\nWhat to check:\n- Check cell 5 offered load and PRB utilization (NR_MAC counters).\n- Verify admission-control and scheduler limits; consider raising capacity.\n- Offload cell 5 to a neighbor via an A1 policy or add a carrier.","recommended_actions":["Check cell 5 offered load and PRB utilization (NR_MAC counters).","Verify admission-control and scheduler limits; consider raising capacity.","Offload cell 5 to a neighbor via an A1 policy or add a carrier."],"confidence":"high"}},"ngap_amf_down":{"note":"","logs":[{"id":"L001","ts":"10:41:59.075","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x0d07 HARQ ACK/NACK stats nominal"},{"id":"L002","ts":"10:41:59.250","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:41:59.768","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L004","ts":"10:42:00.017","component":"AMF","severity":"ERROR","message":"[amf] ERROR: ngap socket error on 127.0.0.5:38412, terminating association"},{"id":"L005","ts":"10:42:00.298","component":"O-CU-CP","severity":"CRITICAL","message":"[NGAP] lost connection to AMF, no active NG association"},{"id":"L006","ts":"10:42:00.322","component":"O-CU-CP","severity":"CRITICAL","message":"[SCTP] association to peer 127.0.0.5 (AMF) is DOWN"},{"id":"L007","ts":"10:42:01.213","component":"O-CU-CP","severity":"WARN","message":"[RRC] rejecting RRCSetup: AMF unavailable, cannot forward NAS"},{"id":"L008","ts":"10:42:01.807","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE RA success but RRC setup not completing (no core)"},{"id":"L009","ts":"10:42:02.545","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L010","ts":"10:42:04.910","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"},{"id":"L011","ts":"10:42:04.946","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L012","ts":"10:42:05.282","component":"O-CU-CP","severity":"ERROR","message":"[NGAP] NG Setup Request timeout, no AMF available"},{"id":"L013","ts":"10:42:05.305","component":"O-CU-CP","severity":"ERROR","message":"[NGAP] retrying NG setup in 5000ms"}],"diagnosis":{"root_cause_component":"AMF","root_cause_summary":"The AMF became unreachable; the gNB lost its NGAP/N2 (SCTP) association, so NG setup retries failed and new UE registrations were rejected.","causal_chain":[{"component":"AMF","event":"AMF becomes unreachable (process down / N2 reset)","evidence_log_ids":["L004"]},{"component":"O-CU-CP","event":"gNB loses SCTP/NGAP association to the AMF","evidence_log_ids":["L005","L006"]},{"component":"O-CU-CP","event":"New UE registrations rejected (core down)","evidence_log_ids":["L007"]},{"component":"O-DU","event":"DU sees UE attach attempts stall after RA","evidence_log_ids":["L008"]},{"component":"O-CU-CP","event":"NG setup retries fail; no AMF available","evidence_log_ids":["L012","L013"]}],"narrative":"**Root cause — AMF.** The AMF became unreachable; the gNB lost its NGAP/N2 (SCTP) association, so NG setup retries failed and new UE registrations were rejected.\n\nHow it unfolded:\n1. [AMF] AMF becomes unreachable (process down / N2 reset) (evidence: L004)\n2. [O-CU-CP] gNB loses SCTP/NGAP association to the AMF (evidence: L005, L006)\n3. [O-CU-CP] New UE registrations rejected (core down) (evidence: L007)\n4. [O-DU] DU sees UE attach attempts stall after RA (evidence: L008)\n5. [O-CU-CP] NG setup retries fail; no AMF available (evidence: L012, L013)\n\nWhat to check:\n- Check the AMF process health and the N2 SCTP association.\n- Verify the gNB's AMF IP/port config and network reachability.\n- Restore the AMF, then confirm NG Setup succeeds.","recommended_actions":["Check the AMF process health and the N2 SCTP association.","Verify the gNB's AMF IP/port config and network reachability.","Restore the AMF, then confirm NG Setup succeeds."],"confidence":"high"}},"f1_setup_failure":{"note":"","logs":[{"id":"L001","ts":"10:41:59.091","component":"O-DU","severity":"INFO","message":"[NR_RRC] periodic CSI report received from UE 0xa286"},{"id":"L002","ts":"10:41:59.116","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:42:00.017","component":"O-DU","severity":"ERROR","message":"[F1AP] sending F1 Setup Request (1 served cell)"},{"id":"L004","ts":"10:42:00.112","component":"O-DU","severity":"ERROR","message":"[F1AP] served cell 1 config: PRACH/SSB parameters out of range"},{"id":"L005","ts":"10:42:00.308","component":"O-CU-CP","severity":"ERROR","message":"[F1AP] F1 Setup Failure sent to DU, cause=cell-config-not-supported"},{"id":"L006","ts":"10:42:00.582","component":"O-DU","severity":"WARN","message":"[F1AP] F1 Setup Failure received, cell 1 not served"},{"id":"L007","ts":"10:42:00.605","component":"O-DU","severity":"WARN","message":"[NR_MAC] cell 1 remains DOWN (no F1 association)"},{"id":"L008","ts":"10:42:00.813","component":"O-CU-CP","severity":"INFO","message":"[RRC] no served cells available for UE access"},{"id":"L009","ts":"10:42:01.421","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L010","ts":"10:42:01.811","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x04b6 HARQ ACK/NACK stats nominal"},{"id":"L011","ts":"10:42:01.850","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L012","ts":"10:42:02.230","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"}],"diagnosis":{"root_cause_component":"O-DU","root_cause_summary":"The O-DU offered an invalid cell configuration over F1; the O-CU rejected the F1 setup, so the cell never came up and no UE could attach.","causal_chain":[{"component":"O-DU","event":"O-DU sends F1 Setup Request with invalid cell config","evidence_log_ids":["L003","L004"]},{"component":"O-CU-CP","event":"O-CU rejects the F1 setup","evidence_log_ids":["L005"]},{"component":"O-DU","event":"O-DU cannot bring up the cell without F1","evidence_log_ids":["L006","L007"]},{"component":"O-CU-CP","event":"No served cell -> no UE access","evidence_log_ids":["L008"]}],"narrative":"**Root cause — O-DU.** The O-DU offered an invalid cell configuration over F1; the O-CU rejected the F1 setup, so the cell never came up and no UE could attach.\n\nHow it unfolded:\n1. [O-DU] O-DU sends F1 Setup Request with invalid cell config (evidence: L003, L004)\n2. [O-CU-CP] O-CU rejects the F1 setup (evidence: L005)\n3. [O-DU] O-DU cannot bring up the cell without F1 (evidence: L006, L007)\n4. [O-CU-CP] No served cell -> no UE access (evidence: L008)\n\nWhat to check:\n- Inspect the O-DU served-cell config (PRACH/SSB params) in the F1 Setup Request.\n- Compare the DU cell config against what the CU supports.\n- Fix the cell config and re-establish F1.","recommended_actions":["Inspect the O-DU served-cell config (PRACH/SSB params) in the F1 Setup Request.","Compare the DU cell config against what the CU supports.","Fix the cell config and re-establish F1."],"confidence":"high"}},"sync_loss":{"note":"Requires a real O-RU + 7.2 fronthaul + PTP to reproduce; synthetic-only on an RFsim/USRP testbed.","logs":[{"id":"L001","ts":"10:41:59.182","component":"O-DU","severity":"INFO","message":"[NR_RRC] periodic CSI report received from UE 0xa286"},{"id":"L002","ts":"10:41:59.768","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"},{"id":"L003","ts":"10:42:00.017","component":"O-RU","severity":"CRITICAL","message":"[FHI72] PTP: lost lock to grandmaster 10.0.0.1 (Announce timeout)"},{"id":"L004","ts":"10:42:00.112","component":"O-RU","severity":"CRITICAL","message":"[FHI72] clock entering HOLDOVER, free-running on local oscillator"},{"id":"L005","ts":"10:42:00.608","component":"O-DU","severity":"ERROR","message":"[FHI72] DL T1a window miss on eAxC 0..7"},{"id":"L006","ts":"10:42:00.672","component":"O-DU","severity":"ERROR","message":"[PHY] eCPRI U-plane out of sync with O-RU (drift > 1.1us)"},{"id":"L007","ts":"10:42:00.774","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x04b6 HARQ ACK/NACK stats nominal"},{"id":"L008","ts":"10:42:00.816","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L009","ts":"10:42:00.874","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"},{"id":"L010","ts":"10:42:01.663","component":"O-CU-CP","severity":"WARN","message":"[RRC] UE context release surge on cell 12, cause=radioLinkFailure"},{"id":"L011","ts":"10:42:01.915","component":"O-DU","severity":"ERROR","message":"[NR_MAC] cell 12 DEACTIVATED: timing fault, TA budget exceeded"},{"id":"L012","ts":"10:42:02.157","component":"AMF","severity":"INFO","message":"[amf] INFO: UE context release (radio) for multiple SUPIs"},{"id":"L013","ts":"10:42:02.545","component":"AMF","severity":"INFO","message":"[amf] INFO: periodic NG heartbeat to gNB OK"}],"diagnosis":{"root_cause_component":"O-RU","root_cause_summary":"The O-RU lost its PTP lock to the grandmaster clock and went into holdover; fronthaul timing drifted, the O-DU deactivated the cell, and UEs dropped.","causal_chain":[{"component":"O-RU","event":"PTP grandmaster clock lost at the O-RU","evidence_log_ids":["L003","L004"]},{"component":"O-DU","event":"Fronthaul timing windows start missing","evidence_log_ids":["L005","L006"]},{"component":"O-CU-CP","event":"UEs drop with radio link failure","evidence_log_ids":["L010"]},{"component":"O-DU","event":"Cell deactivated on persistent timing fault","evidence_log_ids":["L011"]},{"component":"AMF","event":"Core observes the UE context releases","evidence_log_ids":["L012"]}],"narrative":"**Root cause — O-RU.** The O-RU lost its PTP lock to the grandmaster clock and went into holdover; fronthaul timing drifted, the O-DU deactivated the cell, and UEs dropped.\n\nHow it unfolded:\n1. [O-RU] PTP grandmaster clock lost at the O-RU (evidence: L003, L004)\n2. [O-DU] Fronthaul timing windows start missing (evidence: L005, L006)\n3. [O-CU-CP] UEs drop with radio link failure (evidence: L010)\n4. [O-DU] Cell deactivated on persistent timing fault (evidence: L011)\n5. [AMF] Core observes the UE context releases (evidence: L012)\n\nWhat to check:\n- Check grandmaster reachability and the O-RU PTP/SyncE lock state.\n- Verify fronthaul S-plane timing and holdover status.\n- Restore GM lock, then re-activate the affected cell.","recommended_actions":["Check grandmaster reachability and the O-RU PTP/SyncE lock state.","Verify fronthaul S-plane timing and holdover status.","Restore GM lock, then re-activate the affected cell."],"confidence":"high"}},"auth_failure":{"note":"","logs":[{"id":"L001","ts":"10:41:59.037","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0x0d07 HARQ ACK/NACK stats nominal"},{"id":"L002","ts":"10:41:59.125","component":"O-CU-UP","severity":"INFO","message":"[GTPU] DL tunnel stats nominal"},{"id":"L003","ts":"10:42:00.017","component":"UDM","severity":"ERROR","message":"[udm] ERROR: authentication vector mismatch for imsi-999700000001234"},{"id":"L004","ts":"10:42:00.272","component":"AUSF","severity":"WARN","message":"[ausf] WARNING: 5G-AKA authentication failure (MAC failure)"},{"id":"L005","ts":"10:42:00.458","component":"AMF","severity":"WARN","message":"[amf] WARNING: Registration reject (cause=Illegal UE, auth failure)"},{"id":"L006","ts":"10:42:00.882","component":"O-CU-CP","severity":"INFO","message":"[RRC] releasing UE after NAS authentication failure"},{"id":"L007","ts":"10:42:00.934","component":"O-DU","severity":"INFO","message":"[NR_RRC] periodic CSI report received from UE 0xfda9"},{"id":"L008","ts":"10:42:00.998","component":"UPF","severity":"INFO","message":"[upf] INFO: PFCP heartbeat OK"},{"id":"L009","ts":"10:42:01.488","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xc795 HARQ ACK/NACK stats nominal"},{"id":"L010","ts":"10:42:01.955","component":"O-DU","severity":"INFO","message":"[NR_MAC] UE 0xe409 HARQ ACK/NACK stats nominal"}],"diagnosis":{"root_cause_component":"UDM","root_cause_summary":"A subscriber key/OPc mismatch in the UDM caused 5G-AKA to fail at the AUSF, so the AMF rejected registration and the gNB released the UE.","causal_chain":[{"component":"UDM","event":"Subscriber key/OPc mismatch in the UDM (provisioning error)","evidence_log_ids":["L003"]},{"component":"AUSF","event":"AUSF confirms 5G-AKA authentication failure","evidence_log_ids":["L004"]},{"component":"AMF","event":"AMF rejects the registration","evidence_log_ids":["L005"]},{"component":"O-CU-CP","event":"gNB releases the UE after NAS auth reject","evidence_log_ids":["L006"]}],"narrative":"**Root cause — UDM.** A subscriber key/OPc mismatch in the UDM caused 5G-AKA to fail at the AUSF, so the AMF rejected registration and the gNB released the UE.\n\nHow it unfolded:\n1. [UDM] Subscriber key/OPc mismatch in the UDM (provisioning error) (evidence: L003)\n2. [AUSF] AUSF confirms 5G-AKA authentication failure (evidence: L004)\n3. [AMF] AMF rejects the registration (evidence: L005)\n4. [O-CU-CP] gNB releases the UE after NAS auth reject (evidence: L006)\n\nWhat to check:\n- Check the subscriber's K/OPc provisioning in the UDM/UDR.\n- Verify AUSF<->UDM connectivity and the configured auth method.\n- Re-provision the subscriber and retry registration.","recommended_actions":["Check the subscriber's K/OPc provisioning in the UDM/UDR.","Verify AUSF<->UDM connectivity and the configured auth method.","Re-provision the subscriber and retry registration."],"confidence":"high"}}};
@@ -322,21 +357,23 @@ const SEV_VAR = {CRITICAL:"crit", ERROR:"err", WARN:"warn", INFO:"info"};
 
 const $ = (s, r=document) => r.querySelector(s);
 const el = (t, c) => { const n=document.createElement(t); if(c) n.className=c; return n; };
-const tsMs = t => { const p=t.split(":"); const s=(p[2]||"0").split("."); return ((+p[0]*60+ +p[1])*60+ +s[0])*1000 + (+(s[1]||0)); };
+const tsMs = t => { const p=String(t).split(":"); const s=(p[2]||"0").split("."); return ((+p[0]*60+ +p[1])*60+ +s[0])*1000 + (+(s[1]||0)); };
 
+let LIVE = false;
 let curLogs = [], curDiag = null, curGT = null, curName = "", curSeed = null;
 let lineByID = {}, citedBy = {}, allEvidence = new Set(), selected = null;
+let runs = [], activeRun = -1, busy = false;
 
-/* ---------- log panel (rendered before any diagnosis) ---------- */
-function renderLogs(logs) {
+/* ================= workspace: log window ================= */
+function renderLogs(logs){
   curLogs = logs; lineByID = {};
   const comps = new Set(logs.map(l => l.component));
   $("#log-meta").textContent = `${logs.length} lines · ${comps.size} components`;
   const t0 = tsMs(logs[0].ts), t1 = tsMs(logs[logs.length-1].ts), span = (t1 - t0) || 1;
   $("#ribbon-axis").innerHTML = `<span>${logs[0].ts}</span><span>${logs[logs.length-1].ts}</span>`;
   const ribbon = $("#ribbon"); ribbon.innerHTML = "";
-  const sevH = {CRITICAL:22, ERROR:17, WARN:13, INFO:8};
-  const logsEl = $("#logs"); logsEl.innerHTML = ""; logsEl.className = "logs";
+  const sevH = {CRITICAL:20, ERROR:16, WARN:12, INFO:7};
+  const logsEl = $("#logs"); logsEl.innerHTML = ""; logsEl.className = "logs default-dim";
   logs.forEach(l => {
     const row = el("div", "logline"); row.dataset.id = l.id;
     row.innerHTML =
@@ -344,48 +381,41 @@ function renderLogs(logs) {
       `<span class="lts">${l.ts}</span>` +
       `<span class="sev ${l.severity}">${l.severity}</span>` +
       `<span class="lcomp">${l.component}</span>` +
-      `<span class="lmsg">${l.message}</span>`;
+      `<span class="lmsg">${escapeHtml(l.message)}</span>`;
     logsEl.appendChild(row); lineByID[l.id] = row;
     const tick = el("div", "tick");
     tick.style.left = `${((tsMs(l.ts) - t0) / span) * 100}%`;
-    tick.style.height = `${sevH[l.severity] || 8}px`;
+    tick.style.height = `${sevH[l.severity] || 7}px`;
     tick.style.background = `var(--${SEV_VAR[l.severity] || "info"})`;
     tick.title = `[${l.id}] ${l.severity}`;
-    tick.addEventListener("mouseenter", () => { if (lineByID[l.id].classList.contains("is-evidence")) lineByID[l.id].classList.add("hot"); });
-    tick.addEventListener("mouseleave", () => { if (!logsEl.classList.contains("has-selection")) lineByID[l.id].classList.remove("hot"); });
     ribbon.appendChild(tick);
   });
 }
+function escapeHtml(s){ return String(s).replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c])); }
 
-/* ---------- diagnosis panel ---------- */
-function clearDiagnosis(msg) {
+/* ================= workspace: diagnosis ================= */
+function clearDiagnosis(msg){
   curDiag = null; selected = null;
   $("#verdict").textContent = "—";
-  $("#verdict-sum").textContent = msg || "Run your model on these logs.";
-  $("#conf").hidden = true;
-  $("#match").hidden = true;
-  $("#topo").innerHTML = "";
-  $("#topo-cap").innerHTML = "";
+  $("#verdict-sum").innerHTML = msg || "Run your model on these logs.";
+  $("#conf").hidden = true; $("#match").hidden = true;
+  $("#topo").innerHTML = ""; $("#topo-cap").innerHTML = "";
   $("#chain-sub").textContent = "";
-  $("#chain").innerHTML = `<div class="placeholder">No diagnosis yet — click <b>Diagnose ▶</b>.</div>`;
+  $("#chain").innerHTML = `<div class="placeholder" style="padding:12px 18px;">No diagnosis yet.</div>`;
   $("#actions").innerHTML = "";
   $("#narr").innerHTML = `<span class="placeholder">The model's explanation will appear here.</span>`;
   $("#note").hidden = true;
-  const logsEl = $("#logs");
-  if (logsEl) { logsEl.className = "logs"; logsEl.querySelectorAll(".logline").forEach(r => { r.classList.remove("is-evidence","noise","hot"); r.onclick = null; }); }
 }
 
-function renderDiagnosis(d) {
+function renderDiagnosis(d){
   curDiag = d; selected = null; citedBy = {}; allEvidence = new Set();
   d.causal_chain.forEach((step, i) => step.evidence_log_ids.forEach(id => { (citedBy[id] ||= []).push(i); }));
   Object.keys(citedBy).forEach(id => allEvidence.add(id));
 
   $("#verdict").textContent = d.root_cause_component;
   $("#verdict-sum").textContent = d.root_cause_summary;
-  const conf = $("#conf"); conf.hidden = false; conf.className = "conf " + d.confidence;
-  conf.textContent = d.confidence + " confidence";
+  const conf = $("#conf"); conf.hidden = false; conf.className = "conf " + d.confidence; conf.textContent = d.confidence + " confidence";
 
-  // topology = unique components in causal order
   const seen = new Set(), comps = [];
   d.causal_chain.forEach(s => { if (!seen.has(s.component)) { seen.add(s.component); comps.push(s.component); } });
   const topo = $("#topo"); topo.innerHTML = "";
@@ -398,7 +428,6 @@ function renderDiagnosis(d) {
   });
   $("#topo-cap").innerHTML = `Fault originated at the <b>${d.root_cause_component}</b> and propagated downstream — every louder error below it is a symptom, not the cause.`;
 
-  // tag evidence onto already-rendered log rows
   curLogs.forEach(l => {
     const row = lineByID[l.id]; if (!row) return;
     row.classList.remove("is-evidence","noise","hot"); row.onclick = null;
@@ -406,7 +435,6 @@ function renderDiagnosis(d) {
     else { row.classList.add("noise"); }
   });
 
-  // causal chain
   $("#chain-sub").textContent = `root → symptom · ${d.causal_chain.length} steps`;
   const chain = $("#chain"); chain.innerHTML = "";
   d.causal_chain.forEach((step, i) => {
@@ -414,26 +442,22 @@ function renderDiagnosis(d) {
     s.innerHTML =
       `<span class="num">${String(i+1).padStart(2,"0")}</span>` +
       `<span><span class="scomp">${step.component}</span>` +
-      `<span class="sevent">${step.event}</span>` +
+      `<span class="sevent">${escapeHtml(step.event)}</span>` +
       `<span class="sids">${step.evidence_log_ids.join(" · ")}</span></span>`;
     s.addEventListener("click", () => selectStep(i));
     chain.appendChild(s);
   });
 
-  // actions + narrative
   const actions = $("#actions"); actions.innerHTML = "";
-  (d.recommended_actions || []).forEach(a => { const li = el("li"); li.innerHTML = `<span class="mk">→</span><span>${a}</span>`; actions.appendChild(li); });
+  (d.recommended_actions || []).forEach(a => { const li = el("li"); li.innerHTML = `<span class="mk">→</span><span>${escapeHtml(a)}</span>`; actions.appendChild(li); });
   $("#narr").innerHTML =
-    `<strong>Root cause — ${d.root_cause_component}.</strong> ${d.root_cause_summary}` +
-    `<ol>` + d.causal_chain.map(st => `<li>[${st.component}] ${st.event} <span class="cite">${st.evidence_log_ids.join(", ")}</span></li>`).join("") + `</ol>`;
-
-  const topoWrap = topo.parentElement;
-  topoWrap.classList.remove("play"); void topoWrap.offsetWidth; topoWrap.classList.add("play");
+    `<strong>Root cause — ${d.root_cause_component}.</strong> ${escapeHtml(d.root_cause_summary)}` +
+    `<ol>` + d.causal_chain.map(st => `<li>[${st.component}] ${escapeHtml(st.event)} <span class="cite">${st.evidence_log_ids.join(", ")}</span></li>`).join("") + `</ol>`;
   showAll();
 }
 
-function clearHot() { $("#logs").querySelectorAll(".logline.hot").forEach(r => r.classList.remove("hot")); }
-function selectStep(i) {
+function clearHot(){ $("#logs").querySelectorAll(".logline.hot").forEach(r => r.classList.remove("hot")); }
+function selectStep(i){
   if (!curDiag) return;
   if (selected === i) return showAll();
   selected = i;
@@ -445,7 +469,7 @@ function selectStep(i) {
   ids.forEach(id => lineByID[id] && lineByID[id].classList.add("hot"));
   if (lineByID[ids[0]]) lineByID[ids[0]].scrollIntoView({ block: "nearest", behavior: "smooth" });
 }
-function showAll() {
+function showAll(){
   if (!curDiag) return;
   selected = null;
   const logsEl = $("#logs");
@@ -454,161 +478,214 @@ function showAll() {
   clearHot();
   allEvidence.forEach(id => lineByID[id] && lineByID[id].classList.add("hot"));
 }
-$("#clear-btn").addEventListener("click", showAll);
-
-function setMatch(predComp) {
+function setMatch(predComp){
   const m = $("#match");
   if (!curGT) { m.hidden = true; return; }
   const ok = String(predComp).trim().toLowerCase() === curGT.root_cause_component.trim().toLowerCase();
   m.hidden = false; m.className = "match " + (ok ? "ok" : "bad");
-  m.textContent = ok ? `✓ correct (truth: ${curGT.root_cause_component})`
-                     : `✗ predicted ${predComp}, truth ${curGT.root_cause_component}`;
+  m.textContent = ok ? `✓ correct` : `✗ vs truth ${curGT.root_cause_component}`;
 }
 
-/* ---------- DEMO mode (embedded samples; file:// or hosted preview) ---------- */
-function initDemo() {
-  $("#mode-chip").innerHTML = `mode <b>demo · sample data</b>`;
-  $("#tabs").hidden = false; $("#console").hidden = true;
-  const tabs = $("#tabs");
-  Object.keys(SAMPLES).forEach(key => {
-    const t = el("button", "tab"); t.type = "button"; t.dataset.key = key;
-    t.innerHTML = `${SCEN_META[key]?.name || key}<span class="rc">${SAMPLES[key].diagnosis.root_cause_component}</span>`;
-    t.addEventListener("click", () => showSample(key));
-    tabs.appendChild(t);
-  });
-  showSample(Object.keys(SAMPLES)[0]);
+/* ================= chat ================= */
+function addMsg(role, node){
+  const m = el("div", "msg " + role); m.appendChild(node);
+  $("#thread").appendChild(m);
+  $("#thread").scrollTop = $("#thread").scrollHeight;
+  return m;
 }
-function showSample(key) {
-  $("#tabs").querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.key === key));
-  curGT = null;
-  renderLogs(SAMPLES[key].logs);
-  renderDiagnosis(SAMPLES[key].diagnosis);
-  const note = SAMPLES[key].note, n = $("#note");
-  if (note) { n.textContent = "note · " + note; n.hidden = false; } else n.hidden = true;
+function userMsg(text){ const s = el("span"); s.textContent = text; return addMsg("user", s); }
+function botText(html){ const d = el("div", "plain"); d.innerHTML = html; return addMsg("bot", d); }
+function thinking(label){
+  const t = el("div", "think"); t.innerHTML = `<i></i><i></i><i></i>`;
+  if (label){ const s=el("span"); s.style.cssText="color:var(--muted);font-size:.8rem;margin-left:4px"; s.textContent=label; t.appendChild(s); }
+  return addMsg("bot", t);
 }
-
-/* ---------- LIVE mode (your trained model via ui/server.py) ---------- */
-async function initLive() {
-  $("#mode-chip").innerHTML = `mode <b>live · your model</b>`;
-  $("#tabs").hidden = true; $("#console").hidden = false;
-  const sel = $("#c-scenario");
-  try {
-    const r = await fetch("/api/scenarios"); const j = await r.json();
-    j.scenarios.forEach(s => { const o = el("option"); o.value = s; o.textContent = SCEN_META[s]?.name || s; sel.appendChild(o); });
-  } catch (e) {}
-  $("#c-generate").addEventListener("click", doGenerate);
-  $("#c-diagnose").addEventListener("click", doDiagnose);
-  $("#c-load-custom").addEventListener("click", loadCustom);
-  $("#c-save").addEventListener("click", saveLog);
-  $("#c-upload").addEventListener("change", e => { const f = e.target.files[0]; if (f) handleUpload(f); e.target.value = ""; });
-  await doGenerate();
+function diagCard(idx){
+  const run = runs[idx], d = run.diag;
+  const path = [...new Set(d.causal_chain.map(s => s.component))].join(" › ");
+  const btn = el("button", "dcard"); btn.type = "button"; btn.dataset.run = idx;
+  let badge = "";
+  if (run.gt) badge = String(d.root_cause_component).toLowerCase() === run.gt.root_cause_component.toLowerCase()
+    ? `<span class="tag ok">✓</span>` : `<span class="tag bad">✗ truth ${run.gt.root_cause_component}</span>`;
+  btn.innerHTML =
+    `<div class="rc"><span class="comp">${d.root_cause_component}</span><span class="pill ${d.confidence}">${d.confidence}</span>${badge}</div>` +
+    `<p class="sum">${escapeHtml(d.root_cause_summary)}</p>` +
+    `<div class="path">${path}</div>` +
+    `<div class="inspect">click to inspect evidence →</div>`;
+  btn.addEventListener("click", () => loadRun(idx));
+  return addMsg("bot", btn);
 }
 
-async function doGenerate() {
-  const body = {
-    scenario: $("#c-scenario").value,
-    seed: +$("#c-seed").value || 0,
-    noise: +$("#c-noise").value || 0,
-    inject: $("#c-inject").checked,
-  };
-  setBusy(true, "generating…");
-  try {
-    const r = await fetch("/api/generate", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "generate failed");
-    curGT = j.ground_truth; curName = body.scenario; curSeed = body.seed;
-    renderLogs(j.logs);
-    clearDiagnosis(`Logs ready (${j.logs.length} lines). Click Diagnose ▶ to run your model.`);
-    const n = $("#note"); if (j.note) { n.textContent = "note · " + j.note; n.hidden = false; } else n.hidden = true;
-  } catch (e) { clearDiagnosis("⚠ " + e.message); }
+function addRun(o){ runs.push(o); return runs.length - 1; }
+function loadRun(idx){
+  const run = runs[idx]; if (!run) return;
+  activeRun = idx;
+  curGT = run.gt; curName = run.name; curSeed = run.seed;
+  renderLogs(run.logs);
+  renderDiagnosis(run.diag);
+  setMatch(run.diag.root_cause_component);
+  const n = $("#note"); if (run.note){ n.textContent = "note · " + run.note; n.hidden = false; } else n.hidden = true;
+  document.querySelectorAll(".dcard").forEach(c => c.classList.toggle("active", +c.dataset.run === idx));
+  $("#workspace").scrollTop = 0;
+}
+
+/* ================= actions ================= */
+function scenarioLabel(){
+  const key = $("#c-scenario").value;
+  let s = SCEN_META[key]?.name || key;
+  if (LIVE){ s += ` · seed ${+$("#c-seed").value||0} · noise ${+$("#c-noise").value||0}`; if ($("#c-inject").checked) s += " · +inject"; }
+  return s;
+}
+
+function randomScenario(){
+  if (busy) return;
+  const sel = $("#c-scenario"); const opts = [...sel.options].map(o => o.value);
+  if (!opts.length) return;
+  sel.value = opts[Math.floor(Math.random() * opts.length)];
+  if (LIVE){
+    $("#c-seed").value = Math.floor(Math.random() * 1000);
+    $("#c-noise").value = [4, 6, 8, 12][Math.floor(Math.random() * 4)];
+    $("#c-inject").checked = Math.random() < 0.25;
+  }
+  diagnoseScenario();
+}
+
+async function diagnoseScenario(){
+  if (busy) return;
+  const key = $("#c-scenario").value;
+  userMsg(`Diagnose ${scenarioLabel()}`);
+  if (!LIVE){
+    const s = SAMPLES[key]; if (!s) return;
+    const t = thinking(); setBusy(true);
+    setTimeout(() => {
+      t.remove();
+      const idx = addRun({ logs: s.logs, diag: s.diagnosis, gt: null, name: key, seed: null, note: s.note });
+      diagCard(idx); loadRun(idx); setBusy(false);
+    }, 300);
+    return;
+  }
+  const body = { scenario:key, seed:+$("#c-seed").value||0, noise:+$("#c-noise").value||0, inject:$("#c-inject").checked };
+  const t = thinking("generating logs…"); setBusy(true);
+  try{
+    const g = await fetch("/api/generate", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(body)});
+    const gj = await g.json(); if (!g.ok) throw new Error(gj.error || "generate failed");
+    t.querySelector("span") && (t.querySelector("span").textContent = `analyzing ${gj.logs.length} lines…`);
+    const dr = await fetch("/api/diagnose", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({logs: gj.logs})});
+    const dj = await dr.json(); if (!dr.ok) throw new Error(dj.error || "diagnose failed");
+    t.remove();
+    const idx = addRun({ logs: gj.logs, diag: dj, gt: gj.ground_truth, name: body.scenario, seed: body.seed, note: gj.note });
+    diagCard(idx); loadRun(idx);
+  }catch(e){ t.remove(); botText(`⚠ ${escapeHtml(e.message)}`); }
   setBusy(false);
 }
 
-async function doDiagnose() {
-  if (!curLogs.length) return;
-  setBusy(true, "analyzing…");
-  $("#verdict").textContent = "···"; $("#verdict-sum").textContent = "Your model is analyzing the logs…"; $("#match").hidden = true;
-  try {
-    const r = await fetch("/api/diagnose", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({logs: curLogs})});
-    const j = await r.json();
-    if (!r.ok) throw new Error(j.error || "diagnose failed");
-    renderDiagnosis(j);
-    setMatch(j.root_cause_component);
-  } catch (e) { clearDiagnosis("⚠ " + e.message); }
+async function diagnoseLogs(logs, label){
+  if (busy) return;
+  userMsg(`Diagnose ${label}`);
+  if (!LIVE){
+    renderLogs(logs);
+    clearDiagnosis("Demo mode has no live model.");
+    curGT = null; curName = "pasted"; curSeed = null;
+    botText(`Showing your ${logs.length} lines in the log window. Demo mode diagnoses only the 5 built-in scenarios — run <span class="mono">python ui/server.py</span> to diagnose your own logs live.`);
+    return;
+  }
+  const t = thinking(`analyzing ${logs.length} lines…`); setBusy(true);
+  try{
+    const dr = await fetch("/api/diagnose", {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify({logs})});
+    const dj = await dr.json(); if (!dr.ok) throw new Error(dj.error || "diagnose failed");
+    t.remove();
+    const idx = addRun({ logs, diag: dj, gt: null, name: "pasted", seed: null, note: "" });
+    diagCard(idx); loadRun(idx);
+  }catch(e){ t.remove(); botText(`⚠ ${escapeHtml(e.message)}`); }
   setBusy(false);
 }
 
-// parse a .log (rendered text) or a JSON list of log dicts — mirrors tools/analyze_logs.parse_logs
-function parseAny(text) {
+function sendPasted(){
+  const logs = parseAny($("#c-input").value);
+  if (!logs.length){ botText(`Couldn't parse that — expected lines like <span class="mono">[L001] 10:42:00.058 ERROR O-DU your message</span>, or a JSON log list.`); return; }
+  $("#c-input").value = ""; autoGrow();
+  diagnoseLogs(logs, `${logs.length} pasted lines`);
+}
+async function handleUpload(file){
+  const text = await file.text();
+  const logs = parseAny(text);
+  if (!logs.length){ botText(`Couldn't parse <b>${escapeHtml(file.name)}</b> — expected [ID] ts SEV COMP msg, or a JSON log list.`); return; }
+  diagnoseLogs(logs, `${logs.length} lines from ${file.name}`);
+}
+
+/* ================= parse / io (byte-compatible with tools/analyze_logs) ================= */
+function parseAny(text){
   text = (text || "").trim();
   if (!text) return [];
-  if (text[0] === "[" || text[0] === "{") {
-    try {
+  if (text[0] === "[" || text[0] === "{"){
+    try{
       let d = JSON.parse(text);
       if (d && d.logs) d = d.logs;
       if (Array.isArray(d) && d.length && typeof d[0] === "object")
         return d.map(o => ({id:o.id, ts:o.ts, severity:o.severity, component:o.component, message:o.message}));
-    } catch (e) {}
+    }catch(e){}
   }
   const re = /^\[([^\]]+)\]\s+(\S+)\s+(\S+)\s+(\S+)\s+(.*)$/, out = [];
-  text.split("\n").forEach(line => {
-    const m = line.trim().match(re);
-    if (m) out.push({id:m[1], ts:m[2], severity:m[3], component:m[4], message:m[5]});
-  });
+  text.split("\n").forEach(line => { const m = line.trim().match(re); if (m) out.push({id:m[1], ts:m[2], severity:m[3], component:m[4], message:m[5]}); });
   return out;
 }
-
-// render logs back to the .log text format (byte-compatible with core.render_logs / gen_logs)
-function renderLogText(logs) {
-  return logs.map(l =>
-    `[${l.id}] ${l.ts} ${String(l.severity||"").padEnd(8)} ${String(l.component||"").padEnd(12)} ${l.message}`
-  ).join("\n");
+function renderLogText(logs){
+  return logs.map(l => `[${l.id}] ${l.ts} ${String(l.severity||"").padEnd(8)} ${String(l.component||"").padEnd(12)} ${l.message}`).join("\n");
 }
-
-function download(name, text) {
-  const blob = new Blob([text], {type: "text/plain"});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a"); a.href = url; a.download = name; a.click();
-  URL.revokeObjectURL(url);
+function download(name, text){
+  const blob = new Blob([text], {type:"text/plain"}); const url = URL.createObjectURL(blob);
+  const a = document.createElement("a"); a.href = url; a.download = name; a.click(); URL.revokeObjectURL(url);
 }
-
-function saveLog() {
+function saveLog(){
   if (!curLogs.length) return;
-  const name = (curName || "logs") + (curSeed != null ? "_s" + curSeed : "") + ".log";
-  download(name, renderLogText(curLogs) + "\n");
+  download((curName || "logs") + (curSeed != null ? "_s" + curSeed : "") + ".log", renderLogText(curLogs) + "\n");
 }
 
-async function handleUpload(file) {
-  const text = await file.text();
-  const logs = parseAny(text);
-  if (!logs.length) { clearDiagnosis(`⚠ couldn't parse ${file.name} — expected [ID] ts SEV COMP msg, or a JSON log list`); return; }
-  curGT = null; curName = file.name.replace(/\.(log|json|txt)$/i, ""); curSeed = null;
-  renderLogs(logs);
-  clearDiagnosis(`Loaded ${logs.length} lines from ${file.name} — running your model…`);
-  await doDiagnose();   // upload = diagnose directly
+function setInputMode(panelId){
+  document.querySelectorAll(".mode-tab").forEach(tab => {
+    const on = tab.dataset.panel === panelId;
+    tab.classList.toggle("active", on);
+    tab.setAttribute("aria-selected", on ? "true" : "false");
+  });
+  document.querySelectorAll(".tab-panel").forEach(panel => panel.classList.toggle("active", panel.id === panelId));
+  if (panelId === "panel-own") setTimeout(autoGrow, 0);
 }
 
-function loadCustom() {
-  const logs = parseAny($("#c-custom").value);
-  if (!logs.length) { clearDiagnosis("⚠ couldn't parse any lines — format: [L001] 10:42:00.058 ERROR O-DU your message"); return; }
-  curGT = null; curName = "custom"; curSeed = null;
-  renderLogs(logs);
-  clearDiagnosis(`Loaded ${logs.length} custom lines. Click Diagnose ▶ to run your model.`);
+function setBusy(on){
+  busy = on;
+  $("#c-diagnose").disabled = on; $("#c-send").disabled = on;
+  $("#c-diagnose").textContent = on ? "…" : "Diagnose";
 }
+function autoGrow(){ /* textarea now fills the panel via CSS (align-self:stretch); no manual sizing */ }
 
-function setBusy(on, label) {
-  const g = $("#c-generate"), d = $("#c-diagnose");
-  if (g) g.disabled = on;
-  if (d) { d.disabled = on; d.textContent = on ? (label || "working…") : "Diagnose ▶"; }
-}
+/* ================= init ================= */
+(async function init(){
+  try{ const r = await fetch("/api/health", {cache:"no-store"}); LIVE = r.ok; }catch(e){ LIVE = false; }
+  document.body.classList.add(LIVE ? "live" : "demo");
+  if (!LIVE) ["c-seed","c-noise","c-inject"].forEach(id => { const e = document.getElementById(id); if (e) e.disabled = true; });
+  $("#mode-chip").innerHTML = LIVE ? `mode <b>live · your model</b>` : `mode <b>demo · sample data</b>`;
 
-/* ---------- pick mode by probing for the backend ---------- */
-(async function init() {
-  let live = false;
-  try { const r = await fetch("/api/health", {cache:"no-store"}); live = r.ok; } catch (e) { live = false; }
-  if (live) initLive(); else initDemo();
+  const sel = $("#c-scenario");
+  let keys = Object.keys(SAMPLES);
+  if (LIVE){ try{ const r = await fetch("/api/scenarios"); const j = await r.json(); if (j.scenarios?.length) keys = j.scenarios; }catch(e){} }
+  keys.forEach(k => { const o = el("option"); o.value = k; o.textContent = SCEN_META[k]?.name || k; sel.appendChild(o); });
+
+  document.querySelectorAll(".mode-tab").forEach(tab => tab.addEventListener("click", () => setInputMode(tab.dataset.panel)));
+  $("#c-diagnose").addEventListener("click", diagnoseScenario);
+  $("#c-random").addEventListener("click", randomScenario);
+  $("#c-send").addEventListener("click", sendPasted);
+  $("#c-input").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey){ e.preventDefault(); sendPasted(); } });
+  $("#c-input").addEventListener("input", autoGrow);
+  $("#c-upload").addEventListener("change", e => { const f = e.target.files[0]; if (f) handleUpload(f); e.target.value = ""; });
+  $("#clear-btn").addEventListener("click", showAll);
+  $("#save-btn").addEventListener("click", saveLog);
+
+  botText(LIVE
+    ? `Hi — I diagnose O-RAN / 5G-core failures from logs. You don't have to choose: pick a scenario, hit <b>Random</b>, or paste your own <span class="mono">.log</span> lines (or upload a file) — then <b>Diagnose</b>.`
+    : `Hi — this is <b>demo mode</b> with 5 built-in scenarios. You don't have to choose: pick one or hit <b>Random</b>, then <b>Diagnose</b>. For live diagnosis of your own logs, run <span class="mono">python ui/server.py</span>.`);
+  clearDiagnosis("Pick a scenario, hit <b>Random</b>, or paste your own logs — then <b>Diagnose</b>.");
+  diagnoseScenario();  // auto-run the first scenario so the workspace isn't empty
 })();
-
 </script>
 </body>
 </html>
